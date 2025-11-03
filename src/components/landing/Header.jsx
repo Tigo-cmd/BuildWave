@@ -3,31 +3,9 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Rocket } from 'lucide-react';
-import { auth } from '@/lib/firebase';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 const Header = ({ onGetStarted }) => {
   const navigate = useNavigate();
-
-  const handleGoogleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      const result = await signInWithPopup(auth, provider);
-      // The signed-in user info.
-      const user = result.user;
-      console.log(user);
-      // You can now redirect or do something with the user's information
-    } catch (error) {
-      // Handle Errors here.
-      const errorCode = error.code;
-      const errorMessage = error.message;
-      // The email of the user's account used.
-      const email = error.customData.email;
-      // The AuthCredential type that was used.
-      const credential = GoogleAuthProvider.credentialFromError(error);
-      console.error(error);
-    }
-  };
 
   return (
     <motion.header 
@@ -62,9 +40,6 @@ const Header = ({ onGetStarted }) => {
           </Button>
           <Button onClick={onGetStarted} className="gradient-primary text-white">
             Get Started
-          </Button>
-          <Button onClick={handleGoogleLogin} className="gradient-primary text-white">
-            Login with Google
           </Button>
         </div>
 
