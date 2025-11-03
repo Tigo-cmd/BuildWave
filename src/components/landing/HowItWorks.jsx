@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FileText, Users, Rocket } from 'lucide-react';
+import { FileText, Users, Rocket, HammerIcon } from 'lucide-react';
 
 const steps = [
   {
@@ -9,7 +9,7 @@ const steps = [
     description: "Tell us about your project requirements or request topic suggestions tailored to your course."
   },
   {
-    icon: Hammer,
+    icon: HammerIcon,
     title: "We Build It For You",
     description: "Our expert team works on your project while you track progress in real-time."
   },
@@ -34,7 +34,7 @@ const HowItWorks = () => {
             How It Works
           </h2>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Three simple steps to academic success
+            Get your project done in three simple steps.
           </p>
         </motion.div>
 
