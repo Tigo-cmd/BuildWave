@@ -6,17 +6,17 @@ const steps = [
   {
     icon: FileText,
     title: "Submit Your Request",
-    description: "Tell us about your project needs or request topic suggestions"
+    description: "Tell us about your project requirements or request topic suggestions tailored to your course."
   },
   {
-    icon: Users,
-    title: "Get Matched",
-    description: "We assign expert team members to your project"
+    icon: Hammer,
+    title: "We Build It For You",
+    description: "Our expert team works on your project while you track progress in real-time."
   },
   {
     icon: Rocket,
     title: "Track & Receive",
-    description: "Monitor progress and receive deliverables on time"
+    description: "Monitor progress and receive deliverables on time, Get your completed project with documentation and support for your presentation."
   }
 ];
 
