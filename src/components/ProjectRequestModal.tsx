@@ -21,6 +21,8 @@ interface ProjectRequestModalProps {
   prefilledService?: string;
 }
 
+const API_BASE = "http://localhost:5000";
+
 export const ProjectRequestModal = ({
   open,
   onOpenChange,
@@ -32,17 +34,88 @@ export const ProjectRequestModal = ({
     "email"
   );
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setLoading(true);
 
-    const projectId = `BW-2025-${Math.floor(1000 + Math.random() * 9000)}`;
-    toast({
-      title: "✅ Project Submitted Successfully!",
-      description: `Your project ID is ${projectId}. Check your email for confirmation.`,
-    });
+    try {
+      const token = localStorage.getItem("buildwave_token");
+      const form = e.target as HTMLFormElement;
 
-    onOpenChange(false);
+      // Gather form values
+      const title = (form.elements.namedItem("title") as HTMLInputElement).value;
+      const level = (form.elements.namedItem("level") as HTMLSelectElement).value;
+      const discipline = (form.elements.namedItem("discipline") as HTMLInputElement).value;
+      const description = (form.elements.namedItem("description") as HTMLTextAreaElement).value;
+      const phone = (form.elements.namedItem("phone") as HTMLInputElement).value;
+      const deadline = (form.elements.namedItem("deadline") as HTMLInputElement).value;
+      const budget = (form.elements.namedItem("budget") as HTMLInputElement).value;
+      const fileInput = form.elements.namedItem("file") as HTMLInputElement;
+
+      // Create project with JSON first
+      const res = await fetch(`${API_BASE}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          project_title: title,
+          academic_level: level,
+          discipline,
+          description,
+          phone,
+          needTopic,
+          haveProject,
+          contactMethod,
+          deadline,
+          budget,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit project");
+
+      const projectId = data.projectId;
+
+      // If files were selected, upload them
+      if (fileInput?.files?.length) {
+        const formData = new FormData();
+        for (let i = 0; i < fileInput.files.length; i++) {
+          formData.append("file", fileInput.files[i]);
+        }
+
+        const uploadRes = await fetch(`${API_BASE}/api/projects/${projectId}/deliverable`, {
+          method: "POST",
+          body: formData,
+        });
+
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok) throw new Error(uploadData.error || "File upload failed");
+      }
+
+      toast({
+        title: "✅ Project Submitted Successfully!",
+        description: `Your project ID is ${projectId}`,
+      });
+
+      // Reset form and modal state
+      form.reset();
+      setNeedTopic(false);
+      setHaveProject(false);
+      setContactMethod("email");
+      onOpenChange(false);
+    } catch (err: any) {
+      toast({
+        title: "❌ Submission Failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -57,12 +130,13 @@ export const ProjectRequestModal = ({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 py-4">
+        <form onSubmit={handleSubmit} className="space-y-6 py-4" encType="multipart/form-data">
           {/* Project Title */}
           <div className="space-y-2">
             <Label htmlFor="title">Project Title (Optional)</Label>
             <Input
               id="title"
+              name="title"
               placeholder="e.g., Smart Home Automation System"
               defaultValue={prefilledService}
             />
@@ -104,6 +178,7 @@ export const ProjectRequestModal = ({
               <Label htmlFor="level">Academic Level</Label>
               <select
                 id="level"
+                name="level"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
                 required
               >
@@ -115,7 +190,7 @@ export const ProjectRequestModal = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="discipline">Discipline</Label>
-              <Input id="discipline" placeholder="e.g., Computer Science" required />
+              <Input id="discipline" name="discipline" placeholder="e.g., Computer Science" required />
             </div>
           </div>
 
@@ -124,6 +199,7 @@ export const ProjectRequestModal = ({
             <Label htmlFor="description">Brief Description</Label>
             <Textarea
               id="description"
+              name="description"
               placeholder="Describe what you need help with..."
               rows={4}
               required
@@ -135,20 +211,20 @@ export const ProjectRequestModal = ({
             <div className="space-y-2">
               <Label htmlFor="deadline">Deadline</Label>
               <div className="relative">
-                <Input id="deadline" type="date" required />
+                <Input id="deadline" name="deadline" type="date" required />
                 <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="budget">Budget Estimate (Optional)</Label>
-              <Input id="budget" type="text" placeholder="₦100,000 - ₦200,000" />
+              <Input id="budget" name="budget" type="text" placeholder="₦100,000 - ₦200,000" />
             </div>
           </div>
 
           {/* File Upload */}
           <div className="space-y-2">
             <Label htmlFor="file">Upload Documents (Optional)</Label>
-            <Input id="file" type="file" multiple className="cursor-pointer" />
+            <Input id="file" name="file" type="file" multiple className="cursor-pointer" />
             <p className="text-xs text-muted-foreground">
               Upload project briefs, requirements, or any relevant documents
             </p>
@@ -157,7 +233,7 @@ export const ProjectRequestModal = ({
           {/* Phone */}
           <div className="space-y-2">
             <Label htmlFor="phone">Phone Number (Optional)</Label>
-            <Input id="phone" type="tel" placeholder="+234 XXX XXX XXXX" />
+            <Input id="phone" name="phone" type="tel" placeholder="+234 XXX XXX XXXX" />
           </div>
 
           {/* Contact Method */}
@@ -184,8 +260,8 @@ export const ProjectRequestModal = ({
             </RadioGroup>
           </div>
 
-          <Button type="submit" className="w-full btn-hero">
-            Submit Project Request
+          <Button type="submit" className="w-full btn-hero" disabled={loading}>
+            {loading ? "Submitting..." : "Submit Project Request"}
           </Button>
         </form>
       </DialogContent>

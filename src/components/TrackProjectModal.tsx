@@ -18,33 +18,47 @@ export const TrackProjectModal = ({ open, onOpenChange }: TrackProjectModalProps
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleTrack = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleTrack = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
 
-    // Retrieve saved projects (mocked local storage data)
-    const projects = JSON.parse(localStorage.getItem("buildwave_projects") || "[]");
-    const project = projects.find((p: { id: string }) => p.id === projectId);
+    try {
+      const res = await fetch(`http://localhost:5000/api/projects/${projectId}?email=${email}`);
+      const data = await res.json();
 
-    if (project) {
+      if (!res.ok) {
+        toast({
+          title: "❌ Project Not Found",
+          description: data.error || "Invalid Project ID or Email.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Success — navigate
       toast({
         title: "✅ Project Found",
-        description: `Redirecting to project ${projectId}...`,
+        description: "Loading your project…",
       });
+
       onOpenChange(false);
+
       setTimeout(() => {
-        navigate(`/projects/${projectId}`);
-      }, 1000);
-    } else {
+        navigate(`/track/${projectId}`, { state: { project: data } });
+      }, 500);
+
+    } catch (error) {
       toast({
-        title: "❌ Project Not Found",
-        description: "Please check your Project ID and try again.",
+        title: "❌ Network Error",
+        description: "Unable to reach server. Try again later.",
         variant: "destructive",
       });
     }
 
     setLoading(false);
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -1,49 +1,86 @@
-// import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { TrackProjectModal } from "@/components/TrackProjectModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Download, User, Clock, MessageSquare } from "lucide-react";
 import { Helmet } from "react-helmet-async";
+import { useToast } from "@/components/ui/use-toast";
+
+
+const API_BASE =  "http://localhost:5000";
 
 const TrackProject = () => {
   const [trackModalOpen, setTrackModalOpen] = useState(false);
   const { projectId } = useParams();
+  const { toast } = useToast();
 
-  // Mock project data
-  const project = {
-    id: projectId || "BW-2025-0042",
-    title: "IoT Water Tank Controller",
-    status: "In Progress",
-    progress: 65,
-    assignedTo: { name: "Chinelo Obi", role: "Senior Engineer" },
-    timeline: [
-      { time: "2025-10-15 10:00", actor: "student", text: "Project submitted" },
-      { time: "2025-10-15 14:30", actor: "admin", text: "Assigned to development team" },
-      { time: "2025-10-16 09:00", actor: "admin", text: "Requirements review completed" },
-      { time: "2025-10-18 16:00", actor: "admin", text: "Hardware components ordered" },
-      { time: "2025-10-20 11:00", actor: "admin", text: "Prototype development started" },
-    ],
-    deliverables: [
-      { id: "d1", name: "Project Proposal.pdf", url: "#" },
-      { id: "d2", name: "Component List.xlsx", url: "#" },
-    ],
-  };
+  const [project, setProject] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fetchProject = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("buildwave_token");
+
+        const res = await fetch(`${API_BASE}/api/projects/${projectId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Failed to load project");
+
+        setProject(data.project);
+      } catch (err: any) {
+        console.error("Error loading project:", err.message);
+        setError(err.message);
+
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (projectId) fetchProject();
+  }, [projectId]);
+
+  // Loading UI
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Loading project...</p>
+      </div>
+    );
+  }
+
+  // Error UI
+  if (error || !project) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-red-500">{error || "Project not found"}</p>
+      </div>
+    );
+  }
 
   return (
     <>
       <Helmet>
-        <title>Track Project {project.id} - BuildWave</title>
+        <title>{`Track Project ${project.projectId} - BuildWave`}</title>
         <meta name="description" content={`Track progress for ${project.title}`} />
       </Helmet>
-      
+
       <div className="min-h-screen flex flex-col">
-        {/* <Header onTrackProject={() => setTrackModalOpen(true)} /> */}
-        
         <main className="flex-1 container px-4 py-8">
           <div className="max-w-4xl mx-auto space-y-6">
             {/* Project Header */}
@@ -56,7 +93,7 @@ const TrackProject = () => {
                       <Badge className="bg-primary">{project.status}</Badge>
                     </div>
                     <p className="text-muted-foreground font-mono text-sm">
-                      Project ID: {project.id}
+                      Project ID: {projectId}
                     </p>
                   </div>
                   <Button className="btn-accent">
@@ -65,6 +102,7 @@ const TrackProject = () => {
                   </Button>
                 </div>
               </CardHeader>
+
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
@@ -76,21 +114,29 @@ const TrackProject = () => {
               </CardContent>
             </Card>
 
-            {/* Assigned Staff */}
+            {/* Assigned Team */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Assigned Team</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-full bg-gradient-primary flex items-center justify-center">
-                    <User className="h-6 w-6 text-primary-foreground" />
+                {project.assignedTo ? (
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-full bg-gradient-primary flex items-center justify-center">
+                      <User className="h-6 w-6 text-primary-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">{project.assignedTo.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {project.assignedTo.role}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold">{project.assignedTo.name}</p>
-                    <p className="text-sm text-muted-foreground">{project.assignedTo.role}</p>
-                  </div>
-                </div>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    No team assigned yet.
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -101,16 +147,19 @@ const TrackProject = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {project.timeline.map((event, index) => (
+                  {project.timeline?.map((event: any, index: number) => (
                     <div key={index} className="flex gap-4">
                       <div className="flex flex-col items-center">
-                        <div className={`h-3 w-3 rounded-full ${
-                          event.actor === "admin" ? "bg-primary" : "bg-muted"
-                        }`} />
+                        <div
+                          className={`h-3 w-3 rounded-full ${
+                            event.actor === "admin" ? "bg-primary" : "bg-muted"
+                          }`}
+                        />
                         {index < project.timeline.length - 1 && (
                           <div className="w-0.5 h-12 bg-border" />
                         )}
                       </div>
+
                       <div className="flex-1 pb-4">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                           <Clock className="h-3 w-3" />
@@ -129,24 +178,36 @@ const TrackProject = () => {
               <CardHeader>
                 <CardTitle className="text-lg">Deliverables</CardTitle>
               </CardHeader>
+
               <CardContent>
                 <div className="space-y-3">
-                  {project.deliverables.map((file) => (
-                    <div
-                      key={file.id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center">
-                          <Download className="h-5 w-5 text-primary" />
+                  {project.deliverables?.length > 0 ? (
+                    project.deliverables.map((file: any) => (
+                      <div
+                        key={file.id}
+                        className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center">
+                            <Download className="h-5 w-5 text-primary" />
+                          </div>
+                          <span className="font-medium text-sm">{file.name}</span>
                         </div>
-                        <span className="font-medium text-sm">{file.name}</span>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(file.url, "_blank")}
+                        >
+                          Download
+                        </Button>
                       </div>
-                      <Button variant="outline" size="sm">
-                        Download
-                      </Button>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-sm">
+                      No deliverables uploaded yet.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>

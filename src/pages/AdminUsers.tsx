@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Search, Mail, Phone, GraduationCap, MapPin } from "lucide-react";
@@ -7,95 +7,66 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useToast } from "@/components/ui/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-// Mock data
-const mockUsers = [
-  {
-    id: "u1",
-    name: "Amaka Okoye",
-    email: "amaka.okoye@unilag.edu.ng",
-    phone: "+234 812 345 6789",
-    school: "University of Lagos",
-    location: "Lagos, Nigeria",
-    course: "Computer Engineering",
-    level: "Undergraduate",
-    photoUrl: "/placeholder.svg",
-    projectsCount: 2,
-    completedProjects: 1,
-    totalSpent: "₦450,000",
-    joinedAt: "2025-08-15",
-    lastActive: "2 hours ago"
-  },
-  {
-    id: "u2",
-    name: "Ibrahim Yusuf",
-    email: "ibrahim.y@ui.edu.ng",
-    phone: "+234 801 234 5678",
-    school: "University of Ibadan",
-    location: "Ibadan, Nigeria",
-    course: "Computer Science",
-    level: "Masters",
-    photoUrl: "/placeholder.svg",
-    projectsCount: 1,
-    completedProjects: 1,
-    totalSpent: "₦380,000",
-    joinedAt: "2025-07-20",
-    lastActive: "1 day ago"
-  },
-  {
-    id: "u3",
-    name: "Grace Nwosu",
-    email: "grace.n@covenant.edu.ng",
-    phone: "+234 803 456 7890",
-    school: "Covenant University",
-    location: "Ota, Nigeria",
-    course: "Information Systems",
-    level: "PhD",
-    photoUrl: "/placeholder.svg",
-    projectsCount: 3,
-    completedProjects: 2,
-    totalSpent: "₦1,200,000",
-    joinedAt: "2025-06-10",
-    lastActive: "3 days ago"
-  },
-  {
-    id: "u4",
-    name: "David Eze",
-    email: "david.eze@unn.edu.ng",
-    phone: "+234 805 678 9012",
-    school: "University of Nigeria, Nsukka",
-    location: "Enugu, Nigeria",
-    course: "Software Engineering",
-    level: "Undergraduate",
-    photoUrl: "/placeholder.svg",
-    projectsCount: 1,
-    completedProjects: 0,
-    totalSpent: "₦0",
-    joinedAt: "2025-09-01",
-    lastActive: "5 hours ago"
-  }
-];
+
+const API_BASE = "http://localhost:5000";
 
 const AdminUsers = () => {
+const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedUser, setSelectedUser] = useState(mockUsers[0]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const { toast } = useToast();
 
-  const filteredUsers = mockUsers.filter(user =>
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.school.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const token = localStorage.getItem("buildwave_token");
+        const res = await fetch(`${API_BASE}/api/admin/users`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Failed to load users");
+
+        setUsers(data.users);
+        setFilteredUsers(data.users);
+        if (data.users.length > 0) setSelectedUser(data.users[0]);
+      } catch (err: any) {
+        console.error("Error fetching users:", err);
+        toast({
+          title: "Error loading users",
+          description: err.message,
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchUsers();
+  }, []);
   const getLevelColor = (level: string) => {
     switch(level) {
       case "PhD": return "bg-purple-500/10 text-purple-500 border-purple-500/20";
       case "Masters": return "bg-primary/10 text-primary border-primary/20";
       case "Undergraduate": return "bg-green-500/10 text-green-500 border-green-500/20";
-      default: return "";
-    }
+      default: return "";}
   };
 
+
+  // Filter users
+  useEffect(() => {
+    const filtered = users.filter(
+      (u) =>
+        u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.school?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    setFilteredUsers(filtered);
+  }, [searchQuery, users]);
   return (
     <>
       <Helmet>
@@ -130,7 +101,7 @@ const AdminUsers = () => {
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{mockUsers.length}</div>
+                <div className="text-3xl font-bold">{users.length}</div>
               </CardContent>
             </Card>
             <Card>
@@ -139,7 +110,7 @@ const AdminUsers = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-primary">
-                  {mockUsers.reduce((sum, u) => sum + u.projectsCount - u.completedProjects, 0)}
+                  {users.reduce((sum, u) => sum + u.projectsCount - u.completedProjects, 0)}
                 </div>
               </CardContent>
             </Card>
@@ -149,7 +120,7 @@ const AdminUsers = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-green-500">
-                  {mockUsers.reduce((sum, u) => sum + u.completedProjects, 0)}
+                  {users.reduce((sum, u) => sum + u.completedProjects, 0)}
                 </div>
               </CardContent>
             </Card>
