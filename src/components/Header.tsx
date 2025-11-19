@@ -54,7 +54,7 @@ export const Header = ({ onTrackProject, onGetStarted }: HeaderProps) => {
           >
             Track Project
           </Button>
-          <a
+          {/* <a
             href={whatsappLink}
             target="_blank"
             rel="noopener noreferrer"
@@ -62,7 +62,7 @@ export const Header = ({ onTrackProject, onGetStarted }: HeaderProps) => {
             className="fixed bottom-6 right-4 z-50 md:bottom-8 md:right-8 bg-white rounded-full shadow-lg p-3 flex items-center justify-center text-green-600 hover:bg-green-50 transition-colors"
           >
             <MessageCircle className="h-6 w-6" />
-          </a>
+          </a> */}
         </div>
         {/* Mobile Menu Button */}
         <button
@@ -108,7 +108,7 @@ export const Header = ({ onTrackProject, onGetStarted }: HeaderProps) => {
             >
               Track Project
             </Button>
-            <a
+            {/* <a
               href={whatsappLink}
               target="_blank"
               rel="noopener noreferrer"
@@ -116,7 +116,7 @@ export const Header = ({ onTrackProject, onGetStarted }: HeaderProps) => {
               className="fixed bottom-6 right-4 z-50 md:bottom-8 md:right-8 bg-white rounded-full shadow-lg p-3 flex items-center justify-center text-green-600 hover:bg-green-50 transition-colors"
             >
               <MessageCircle className="h-6 w-6" />
-            </a>
+            </a> */}
           </div>
         </div>
       )}
