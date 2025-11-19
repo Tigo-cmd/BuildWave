@@ -1,15 +1,26 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import { motion } from "framer-motion";
+
 import { Footer } from "@/components/Footer";
 import { TrackProjectModal } from "@/components/TrackProjectModal";
 import { ProjectRequestModal } from "@/components/ProjectRequestModal";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  CardDescription,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+
 import { Plus, FileText, Clock, LogOut } from "lucide-react";
-import { Helmet } from "react-helmet-async";
-import { motion } from "framer-motion";
+
+const API_BASE = "http://localhost:5000";
 
 interface Project {
   id: string;
@@ -27,40 +38,178 @@ interface User {
 }
 
 const Dashboard = () => {
-  const [trackModalOpen, setTrackModalOpen] = useState(false);
-  const [projectModalOpen, setProjectModalOpen] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("buildwave_user");
-    const storedProjects = localStorage.getItem("buildwave_projects");
+  const [user, setUser] = useState<User | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-    if (storedUser) setUser(JSON.parse(storedUser));
-    if (storedProjects) setProjects(JSON.parse(storedProjects));
+  const [trackModalOpen, setTrackModalOpen] = useState(false);
+  const [projectModalOpen, setProjectModalOpen] = useState(false);
+
+  // -------------------------------------
+  // Fetch dashboard data from backend
+  // -------------------------------------
+  const fetchDashboard = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const token = localStorage.getItem("buildwave_token");
+      if (!token) throw new Error("User not authenticated");
+
+      const res = await fetch(`${API_BASE}/api/projects`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Failed to load dashboard");
+
+      setUser(data.user || null);
+      setProjects(data.projects || []);
+    } catch (err: any) {
+      console.error("Dashboard fetch error:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboard();
   }, []);
 
+  // -------------------------------------
+  // Logout
+  // -------------------------------------
   const handleLogout = () => {
-    localStorage.removeItem("buildwave_user");
+    localStorage.removeItem("buildwave_token");
     navigate("/");
   };
 
+  // -------------------------------------
+  // Badge color
+  // -------------------------------------
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "In Progress":
-        return "bg-primary text-white";
-      case "Under Review":
-      case "Pending Review":
-        return "bg-yellow-100 text-yellow-700";
-      case "Completed":
-        return "bg-green-100 text-green-700";
-      case "On Hold":
-        return "bg-red-100 text-red-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
+    const colors: Record<string, string> = {
+      "In Progress": "bg-primary text-white",
+      "Under Review": "bg-yellow-100 text-yellow-700",
+      "Pending Review": "bg-yellow-100 text-yellow-700",
+      "Completed": "bg-green-100 text-green-700",
+      "On Hold": "bg-red-100 text-red-700",
+    };
+    return colors[status] || "bg-gray-100 text-gray-700";
   };
+
+  // -------------------------------------
+  // Project Card
+  // -------------------------------------
+  const ProjectCard = ({ project, index }: { project: Project; index: number }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+    >
+      <Card
+        className="card-hover cursor-pointer"
+        onClick={() => navigate(`/track/${project.id}`)}
+      >
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="text-xl mb-1">
+                {project.title || "Untitled Project"}
+              </CardTitle>
+              <CardDescription className="flex items-center gap-2">
+                <span className="font-mono text-xs">{project.id}</span>
+                <span>•</span>
+                <Badge variant="outline">{project.level}</Badge>
+                {project.discipline && (
+                  <>
+                    <span>•</span>
+                    <Badge variant="outline">{project.discipline}</Badge>
+                  </>
+                )}
+              </CardDescription>
+            </div>
+            <Badge className={getStatusColor(project.status)}>
+              {project.status}
+            </Badge>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Progress</span>
+                <span className="font-medium">{project.progress || 0}%</span>
+              </div>
+              <Progress value={project.progress || 0} className="h-2" />
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                <span>Updated {project.lastUpdate || "recently"}</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/track/${project.id}`)}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                View Details
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+
+  // -------------------------------------
+  // Empty State
+  // -------------------------------------
+  const EmptyProjects = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white rounded-2xl p-12 text-center shadow-lg"
+    >
+      <h2 className="text-2xl font-bold mb-4">No Projects Yet</h2>
+      <p className="text-muted-foreground mb-6">
+        Start your academic journey by submitting your first project
+      </p>
+      <Button className="btn-hero" onClick={() => setProjectModalOpen(true)}>
+        <Plus className="mr-2 h-5 w-5" />
+        Submit Your First Project
+      </Button>
+    </motion.div>
+  );
+
+  // -------------------------------------
+  // Render
+  // -------------------------------------
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Loading dashboard...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-red-500">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -84,11 +233,9 @@ const Dashboard = () => {
                 <p className="text-muted-foreground mt-1">{user.school}</p>
               )}
             </div>
+
             <div className="flex gap-2">
-              <Button
-                onClick={() => setProjectModalOpen(true)}
-                className="btn-hero"
-              >
+              <Button className="btn-hero" onClick={() => setProjectModalOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 New Project
               </Button>
@@ -101,120 +248,16 @@ const Dashboard = () => {
 
           {/* Projects Section */}
           <div className="grid gap-6 mb-8">
-            {projects.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl p-12 text-center shadow-lg"
-              >
-                <h2 className="text-2xl font-bold mb-4">
-                  No Projects Yet
-                </h2>
-                <p className="text-muted-foreground mb-6">
-                  Start your academic journey by submitting your first project
-                </p>
-                <Button
-                  onClick={() => setProjectModalOpen(true)}
-                  className="btn-hero"
-                >
-                  <Plus className="mr-2 h-5 w-5" />
-                  Submit Your First Project
-                </Button>
-              </motion.div>
-            ) : (
-              projects.map((project, index) => (
-                <motion.div
-                  key={project.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <Card
-                    className="card-hover cursor-pointer"
-                    onClick={() => navigate(`/projects/${project.id}`)}
-                  >
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-xl mb-1">
-                            {project.title || "Untitled Project"}
-                          </CardTitle>
-                          <CardDescription className="flex items-center gap-2">
-                            <span className="font-mono text-xs">
-                              {project.id}
-                            </span>
-                            <span>•</span>
-                            <Badge variant="outline">{project.level}</Badge>
-                            {project.discipline && (
-                              <>
-                                <span>•</span>
-                                <Badge variant="outline">
-                                  {project.discipline}
-                                </Badge>
-                              </>
-                            )}
-                          </CardDescription>
-                        </div>
-                        <Badge className={getStatusColor(project.status)}>
-                          {project.status}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">
-                              Progress
-                            </span>
-                            <span className="font-medium">
-                              {project.progress || 0}%
-                            </span>
-                          </div>
-                          <Progress
-                            value={project.progress || 0}
-                            className="h-2"
-                          />
-                        </div>
-                        <div className="flex items-center justify-between pt-2 border-t">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            <span>
-                              Updated {project.lastUpdate || "recently"}
-                            </span>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                navigate(`/projects/${project.id}`)
-                              }
-                            >
-                              <FileText className="mr-2 h-4 w-4" />
-                              View Details
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))
-            )}
+            {projects.length === 0
+              ? <EmptyProjects />
+              : projects.map((p, i) => <ProjectCard key={p.id} project={p} index={i} />)}
           </div>
         </main>
 
+        {/* Modals */}
         <Footer onTrackProject={() => setTrackModalOpen(true)} />
-        <TrackProjectModal
-          open={trackModalOpen}
-          onOpenChange={setTrackModalOpen}
-        />
-        <ProjectRequestModal
-          open={projectModalOpen}
-          onOpenChange={setProjectModalOpen}
-        />
+        <TrackProjectModal open={trackModalOpen} onOpenChange={setTrackModalOpen} />
+        <ProjectRequestModal open={projectModalOpen} onOpenChange={setProjectModalOpen} />
       </div>
     </>
   );
