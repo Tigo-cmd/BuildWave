@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
 import { Search, Filter, Download, Eye, Edit } from "lucide-react";
@@ -9,69 +9,70 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { useAuth, AuthProvider } from '@/hooks/useAuth';
+import { useAuth } from "@/hooks/useAuth";
 
-// Mock data
-const mockProjects = [
-  {
-    id: "BW-2025-0042",
-    title: "IoT Water Tank Controller",
-    student: "Amaka Okoye",
-    level: "Undergraduate",
-    discipline: "Electrical Engineering",
-    status: "In Progress",
-    progress: 45,
-    assignedTo: "Chinelo",
-    deadline: "2025-11-15",
-    lastUpdated: "2 hours ago"
-  },
-  {
-    id: "BW-2025-0041",
-    title: "AI-Powered Chatbot for Customer Service",
-    student: "Ibrahim Yusuf",
-    level: "Masters",
-    discipline: "Computer Science",
-    status: "Review",
-    progress: 80,
-    assignedTo: "Tunde",
-    deadline: "2025-10-30",
-    lastUpdated: "1 day ago"
-  },
-  {
-    id: "BW-2025-0040",
-    title: "Blockchain-Based Supply Chain System",
-    student: "Grace Nwosu",
-    level: "PhD",
-    discipline: "Information Systems",
-    status: "Completed",
-    progress: 100,
-    assignedTo: "Chinelo",
-    deadline: "2025-10-01",
-    lastUpdated: "3 days ago"
-  },
-  {
-    id: "BW-2025-0039",
-    title: "Mobile App for Mental Health Tracking",
-    student: "David Eze",
-    level: "Undergraduate",
-    discipline: "Software Engineering",
-    status: "Pending",
-    progress: 0,
-    assignedTo: null,
-    deadline: "2025-12-01",
-    lastUpdated: "5 hours ago"
-  }
-];
+interface Project {
+  id: string;
+  title: string;
+  student: string;
+  level: string;
+  discipline: string;
+  status: string;
+  progress: number;
+  assignedTo?: string | null;
+  deadline?: string;
+  lastUpdated?: string;
+}
 
 const Admin = () => {
   const { signOut } = useAuth();
   const navigate = useNavigate();
+
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [levelFilter, setLevelFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const filteredProjects = mockProjects.filter(project => {
-    const matchesSearch = 
+  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const token = localStorage.getItem("buildwave_token");
+        const res = await fetch(`${API_BASE}/api/projects`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Failed to fetch projects");
+        const data = await res.json();
+
+        // Map backend response to Project interface
+        const projectsData: Project[] = data.projects.map((p: any) => ({
+          id: p.id,
+          title: p.title,
+          student: p.studentName || p.student?.name || "Unknown",
+          level: p.level || "N/A",
+          discipline: p.discipline || "N/A",
+          status: p.status,
+          progress: p.progress || 0,
+          assignedTo: p.assignedTo || null,
+          deadline: p.deadline,
+          lastUpdated: p.updatedAt,
+        }));
+
+        setProjects(projectsData);
+      } catch (err) {
+        console.error("Fetch projects error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, []);
+
+  const filteredProjects = projects.filter((project) => {
+    const matchesSearch =
       project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.student.toLowerCase().includes(searchQuery.toLowerCase());
@@ -81,19 +82,26 @@ const Admin = () => {
   });
 
   const getStatusColor = (status: string) => {
-    switch(status) {
-      case "Completed": return "bg-green-500/10 text-green-500 border-green-500/20";
-      case "In Progress": return "bg-primary/10 text-primary border-primary/20";
-      case "Review": return "bg-amber-500/10 text-amber-500 border-amber-500/20";
-      case "Pending": return "bg-muted text-muted-foreground border-border";
-      default: return "";
+    switch (status) {
+      case "Completed":
+        return "bg-green-500/10 text-green-500 border-green-500/20";
+      case "In Progress":
+        return "bg-primary/10 text-primary border-primary/20";
+      case "Review":
+        return "bg-amber-500/10 text-amber-500 border-amber-500/20";
+      case "Pending":
+        return "bg-muted text-muted-foreground border-border";
+      default:
+        return "";
     }
   };
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/admin/login');
+    navigate("/admin/login");
   };
+
+  if (loading) return <div className="p-4">Loading projects...</div>;
 
   return (
     <>
@@ -136,7 +144,7 @@ const Admin = () => {
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Projects</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{mockProjects.length}</div>
+                <div className="text-3xl font-bold">{projects.length}</div>
               </CardContent>
             </Card>
             <Card>
@@ -145,7 +153,7 @@ const Admin = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-primary">
-                  {mockProjects.filter(p => p.status === "In Progress").length}
+                  {projects.filter((p) => p.status === "In Progress").length}
                 </div>
               </CardContent>
             </Card>
@@ -155,7 +163,7 @@ const Admin = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-amber-500">
-                  {mockProjects.filter(p => p.status === "Review").length}
+                  {projects.filter((p) => p.status === "Review").length}
                 </div>
               </CardContent>
             </Card>
@@ -165,7 +173,7 @@ const Admin = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-green-500">
-                  {mockProjects.filter(p => p.status === "Completed").length}
+                  {projects.filter((p) => p.status === "Completed").length}
                 </div>
               </CardContent>
             </Card>
@@ -247,9 +255,7 @@ const Admin = () => {
                         <Badge variant="outline">{project.level}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(project.status)}>
-                          {project.status}
-                        </Badge>
+                        <Badge className={getStatusColor(project.status)}>{project.status}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
