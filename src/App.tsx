@@ -15,7 +15,7 @@ import AdminTestimonials from "./pages/AdminTestimonials";
 import AdminUsers from "./pages/AdminUsers";
 import NotFound from "./pages/NotFound";
 import { ProtectedAdminRoute } from '@/components/ProtectedAdminRoute';
-
+import WhatsappChat from "@/components/Whatsappchat";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -25,6 +25,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <WhatsappChat />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/dashboard" element={<Dashboard />} />
