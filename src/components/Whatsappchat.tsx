@@ -1,4 +1,6 @@
 // Lightweight local WhatsApp SVG icon to avoid depending on react-icons
+import { useState } from "react";
+
 const WhatsappIcon = ({ size = 24 }: { size?: number }) => (
   <svg
     width={size}
@@ -15,31 +17,38 @@ const WhatsappIcon = ({ size = 24 }: { size?: number }) => (
 );
 
 export default function WhatsappChat() {
- const whatsappNumber = "2347016162040";
+  const [showTooltip, setShowTooltip] = useState(false);
+  const whatsappNumber = "2347016162040";
   const whatsappMessage = "Hi BuildWave, I need help with a project.";
   const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
     whatsappMessage
   )}`;
 
   return (
-    <a
-      href={whatsappLink}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="fixed right-6 bottom-1/2 transform translate-y-1/2 z-50 bg-green-500 hover:bg-green-600 text-white p-4 rounded-full shadow-lg transition-all"
-      aria-label="Chat With Us on WhatsApp"
-      title="Chat with us on WhatsApp"
+    <div
+      className="fixed right-0 bottom-1/2 transform translate-y-1/2 z-50 flex flex-col items-center"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
     >
-      {/* Tooltip - appears on hover */}
-      <span
-        role="tooltip"
-        className="pointer-events-none absolute right-full mr-3 top-1/2 -translate-y-1/2 opacity-0 scale-95 transform transition-all duration-150 bg-gray-900 text-white text-sm px-3 py-1 rounded shadow-lg whitespace-nowrap group-hover:opacity-100 group-hover:scale-100"
-        aria-hidden="true"
-      >
-        Chat with us on WhatsApp
-      </span>
+    {/* Tooltip */}
+    <div
+      className={`px-4 py-2 whitespace-nowrap text-sm font-bold text-white bg-purple-600 rounded-lg shadow-lg transition-opacity duration-200 absolute right-full mr-2 top-1/2 transform -translate-y-1/2 ${
+        showTooltip ? "opacity-100" : "opacity-0 pointer-events-none"
+      }`}
+    >
+      Chat with us on WhatsApp
+    </div>
 
-      <WhatsappIcon size={28} />
-    </a>
+      <a
+        href={whatsappLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="bg-green-500 hover:bg-green-600 text-white p-3 rounded-full shadow-lg transition-all"
+        aria-label="Chat With Us on WhatsApp"
+        title="Chat with us on WhatsApp"
+      >
+        <WhatsappIcon size={28} />
+      </a>
+    </div>
   );
 }
