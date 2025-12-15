@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   Dialog,
   DialogContent,
@@ -12,12 +13,14 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
-
-const API_BASE = "http://localhost:5000";
+import { useFirebaseAuth } from "@/integrations/firebase/useFirebaseAuth";
+import { createUser } from "@/integrations/firebase/firebaseService";
+import { auth } from "@/integrations/firebase/config";
 
 export const AuthModal = ({ open, onOpenChange }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { register, login, user } = useFirebaseAuth();
 
   const [step, setStep] = useState("auth"); // "auth" | "onboarding" | "signin"
   const [email, setEmail] = useState("");
@@ -53,7 +56,7 @@ export const AuthModal = ({ open, onOpenChange }) => {
     setStep("onboarding");
   };
 
-  // STEP 2 — complete onboarding (send signup + profile to backend)
+  // STEP 2 — complete onboarding (create user in Firebase)
   const handleOnboardingSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -61,49 +64,66 @@ export const AuthModal = ({ open, onOpenChange }) => {
     try {
       const formData = new FormData(e.target);
 
-      const payload = {
-        name: fullName,
-        email,
-        password,
-        school: formData.get("school"),
-        course: formData.get("course"),
-        level: formData.get("level"),
-        phone: formData.get("phone"),
-        location: formData.get("location"),
-        hasProject,
-      };
+      // Register user with Firebase Auth
+      const registeredUser = await register(email, password);
 
-      // Call your backend signup endpoint
-      const res = await fetch(`${API_BASE}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Registration failed");
+      if (!registeredUser || !registeredUser.uid) {
+        throw new Error("Failed to create user account");
       }
 
-      // Save token & user locally
-      localStorage.setItem("buildwave_token", data.token);
-      localStorage.setItem("buildwave_user", JSON.stringify(data.user));
+      // Create user profile in Firestore
+      const userData = {
+        name: fullName,
+        email: email,
+        school: formData.get("school") || "",
+        course: formData.get("course") || "",
+        level: formData.get("level") || "Undergraduate",
+        phone: formData.get("phone") || "",
+        location: formData.get("location") || "",
+        hasProject: hasProject,
+        projectsCount: 0,
+        completedProjects: 0,
+        totalSpent: "₦0",
+        joinedAt: new Date().toLocaleDateString(),
+        lastActive: new Date().toLocaleDateString(),
+      };
+
+      await createUser(registeredUser.uid, userData);
+
+      // Save to localStorage
+      localStorage.setItem("buildwave_user", JSON.stringify(userData));
+      localStorage.setItem("buildwave_uid", registeredUser.uid);
 
       toast({
         title: "🎉 Account Created!",
         description: "Welcome to BuildWave.",
       });
 
+      // Reset form
+      setEmail("");
+      setFullName("");
+      setPassword("");
+      setConfirmPassword("");
+      setStep("auth");
+
       onOpenChange(false);
       navigate("/dashboard");
     } catch (err) {
       console.error("Registration error:", err);
-      toast({
-        title: "Registration failed",
-        description: err.message || "Could not complete registration.",
-        variant: "destructive",
-      });
+
+      if (err.code === "auth/email-already-in-use") {
+        toast({
+          title: "Email already registered",
+          description: "This email is already in use. Please sign in or use a different email address.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Registration failed",
+          description: err.message || "Could not complete registration.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -115,25 +135,26 @@ export const AuthModal = ({ open, onOpenChange }) => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      // Sign in with Firebase Auth
+      const loggedInUser = await login(email, password);
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Sign in failed");
+      if (!loggedInUser || !loggedInUser.uid) {
+        throw new Error("Sign in failed");
       }
 
-      localStorage.setItem("buildwave_token", data.token);
-      localStorage.setItem("buildwave_user", JSON.stringify(data.user));
+      // Save to localStorage
+      localStorage.setItem("buildwave_uid", loggedInUser.uid);
+      localStorage.setItem("buildwave_email", loggedInUser.email || email);
 
       toast({
         title: "Welcome back!",
-        description: `Hi ${data.user?.name || "there"} 👋`,
+        description: `Hi ${fullName || "there"} 👋`,
       });
+
+      // Reset form
+      setEmail("");
+      setPassword("");
+      setStep("auth");
 
       onOpenChange(false);
       navigate("/dashboard");
@@ -335,7 +356,7 @@ export const AuthModal = ({ open, onOpenChange }) => {
                 <Checkbox
                   id="hasProject"
                   checked={hasProject}
-                  onCheckedChange={(checked) => setHasProject(checked)}
+                  onCheckedChange={(checked) => setHasProject(checked === true)}
                 />
                 <label
                   htmlFor="hasProject"

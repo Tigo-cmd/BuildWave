@@ -18,27 +18,29 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
-import { Plus, FileText, Clock, LogOut } from "lucide-react";
-
-const API_BASE = "http://localhost:5000";
+import { Plus, FileText, Clock, LogOut, Loader2 } from "lucide-react";
+import { useFirebaseAuth } from "@/integrations/firebase/useFirebaseAuth";
+import { getUserProjects, getUser } from "@/integrations/firebase/firebaseService";
 
 interface Project {
   id: string;
   title: string;
   status: string;
-  progress: number;
-  level: string;
-  discipline?: string;
-  lastUpdate?: string;
+  progress?: number;
+  category?: string;
+  description?: string;
+  createdAt?: any;
 }
 
 interface User {
   name: string;
   school?: string;
+  email?: string;
 }
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user: authUser, logout } = useFirebaseAuth();
 
   const [user, setUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -48,29 +50,36 @@ const Dashboard = () => {
   const [trackModalOpen, setTrackModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
 
-  // -------------------------------------
-  // Fetch dashboard data from backend
-  // -------------------------------------
+  // Check authentication
+  useEffect(() => {
+    if (!authUser && !loading) {
+      navigate("/");
+    }
+  }, [authUser, navigate, loading]);
+
+  // Fetch dashboard data from Firebase
   const fetchDashboard = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const token = localStorage.getItem("buildwave_token");
-      if (!token) throw new Error("User not authenticated");
+      if (!authUser) {
+        throw new Error("User not authenticated");
+      }
 
-      const res = await fetch(`${API_BASE}/api/projects`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // Fetch user profile
+      const userProfile = await getUser(authUser.uid);
+      if (userProfile) {
+        setUser({
+          name: (userProfile as any)?.name || authUser.displayName || "Student",
+          school: (userProfile as any)?.school,
+          email: (userProfile as any)?.email,
+        });
+      }
 
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error || "Failed to load dashboard");
-
-      setUser(data.user || null);
-      setProjects(data.projects || []);
+      // Fetch user projects
+      const userProjects = await getUserProjects(authUser.uid);
+      setProjects(userProjects as Project[]);
     } catch (err: any) {
       console.error("Dashboard fetch error:", err);
       setError(err.message);
@@ -80,15 +89,24 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    fetchDashboard();
-  }, []);
+    if (authUser) {
+      fetchDashboard();
+    }
+  }, [authUser]);
 
   // -------------------------------------
   // Logout
   // -------------------------------------
-  const handleLogout = () => {
-    localStorage.removeItem("buildwave_token");
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      localStorage.removeItem("buildwave_uid");
+      localStorage.removeItem("buildwave_user");
+      localStorage.removeItem("buildwave_email");
+      navigate("/");
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
   };
 
   // -------------------------------------
@@ -108,69 +126,88 @@ const Dashboard = () => {
   // -------------------------------------
   // Project Card
   // -------------------------------------
-  const ProjectCard = ({ project, index }: { project: Project; index: number }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-    >
-      <Card
-        className="card-hover cursor-pointer"
-        onClick={() => navigate(`/track/${project.id}`)}
+  const ProjectCard = ({ project, index }: { project: Project; index: number }) => {
+    // Format date from Firebase timestamp
+    const formatDate = (timestamp: any) => {
+      if (!timestamp) return "recently";
+      try {
+        const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays === 0) return "today";
+        if (diffDays === 1) return "yesterday";
+        if (diffDays < 7) return `${diffDays} days ago`;
+        return date.toLocaleDateString();
+      } catch {
+        return "recently";
+      }
+    };
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.05 }}
       >
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div>
-              <CardTitle className="text-xl mb-1">
-                {project.title || "Untitled Project"}
-              </CardTitle>
-              <CardDescription className="flex items-center gap-2">
-                <span className="font-mono text-xs">{project.id}</span>
-                <span>•</span>
-                <Badge variant="outline">{project.level}</Badge>
-                {project.discipline && (
-                  <>
-                    <span>•</span>
-                    <Badge variant="outline">{project.discipline}</Badge>
-                  </>
-                )}
-              </CardDescription>
-            </div>
-            <Badge className={getStatusColor(project.status)}>
-              {project.status}
-            </Badge>
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="font-medium">{project.progress || 0}%</span>
+        <Card
+          className="card-hover cursor-pointer"
+          onClick={() => navigate(`/track/${project.id}`)}
+        >
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="text-xl mb-1">
+                  {project.title || "Untitled Project"}
+                </CardTitle>
+                <CardDescription className="flex items-center gap-2">
+                  <span className="font-mono text-xs">{project.id}</span>
+                  <span>•</span>
+                  {project.category && (
+                    <Badge variant="outline">{project.category}</Badge>
+                  )}
+                </CardDescription>
               </div>
-              <Progress value={project.progress || 0} className="h-2" />
+              <Badge className={getStatusColor(project.status)}>
+                {project.status}
+              </Badge>
             </div>
+          </CardHeader>
 
-            <div className="flex items-center justify-between pt-2 border-t">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                <span>Updated {project.lastUpdate || "recently"}</span>
+          <CardContent>
+            <div className="space-y-4">
+              {project.description && (
+                <p className="text-sm text-muted-foreground">{project.description}</p>
+              )}
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Progress</span>
+                  <span className="font-medium">{project.progress || 0}%</span>
+                </div>
+                <Progress value={project.progress || 0} className="h-2" />
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate(`/track/${project.id}`)}
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                View Details
-              </Button>
+
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>Updated {formatDate(project.createdAt)}</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/track/${project.id}`)}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  View Details
+                </Button>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  };
 
   // -------------------------------------
   // Empty State

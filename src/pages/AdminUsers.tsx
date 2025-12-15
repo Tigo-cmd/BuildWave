@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Search, Mail, Phone, GraduationCap, MapPin } from "lucide-react";
+import { ArrowLeft, Search, Mail, Phone, GraduationCap, MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,33 +9,24 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-
-const API_BASE = "http://localhost:5000";
+import { getAllUsers, searchUsers } from "@/integrations/firebase/firebaseService";
 
 const AdminUsers = () => {
-const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const token = localStorage.getItem("buildwave_token");
-        const res = await fetch(`${API_BASE}/api/admin/users`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Failed to load users");
-
-        setUsers(data.users);
-        setFilteredUsers(data.users);
-        if (data.users.length > 0) setSelectedUser(data.users[0]);
+        setLoading(true);
+        const data = await getAllUsers();
+        setUsers(data);
+        setFilteredUsers(data);
+        if (data.length > 0) setSelectedUser(data[0]);
       } catch (err: any) {
         console.error("Error fetching users:", err);
         toast({
@@ -43,29 +34,35 @@ const [users, setUsers] = useState([]);
           description: err.message,
           variant: "destructive",
         });
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchUsers();
-  }, []);
+  }, [toast]);
   const getLevelColor = (level: string) => {
     switch(level) {
       case "PhD": return "bg-purple-500/10 text-purple-500 border-purple-500/20";
       case "Masters": return "bg-primary/10 text-primary border-primary/20";
       case "Undergraduate": return "bg-green-500/10 text-green-500 border-green-500/20";
-      default: return "";}
+      default: return "";
+    }
   };
-
 
   // Filter users
   useEffect(() => {
-    const filtered = users.filter(
-      (u) =>
-        u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.school?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    setFilteredUsers(filtered);
+    if (searchQuery.trim() === "") {
+      setFilteredUsers(users);
+    } else {
+      const filtered = users.filter(
+        (u) =>
+          u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          u.school?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredUsers(filtered);
+    }
   }, [searchQuery, users]);
   return (
     <>
@@ -165,44 +162,61 @@ const [users, setUsers] = useState([]);
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredUsers.map((user) => (
-                        <TableRow 
-                          key={user.id}
-                          className={selectedUser?.id === user.id ? "bg-muted/50" : "cursor-pointer"}
-                          onClick={() => setSelectedUser(user)}
-                        >
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <Avatar>
-                                <AvatarImage src={user.photoUrl} alt={user.name} />
-                                <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">{user.name}</p>
-                                <p className="text-xs text-muted-foreground">{user.email}</p>
-                              </div>
+                      {loading ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8">
+                            <div className="flex items-center justify-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span>Loading users...</span>
                             </div>
-                          </TableCell>
-                          <TableCell className="text-sm">{user.school}</TableCell>
-                          <TableCell>
-                            <Badge className={getLevelColor(user.level)}>
-                              {user.level}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              <span className="font-medium">{user.projectsCount}</span>
-                              <span className="text-muted-foreground"> ({user.completedProjects} done)</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium">{user.totalSpent}</TableCell>
-                          <TableCell>
-                            <Button size="sm" variant="ghost" onClick={() => setSelectedUser(user)}>
-                              View
-                            </Button>
                           </TableCell>
                         </TableRow>
-                      ))}
+                      ) : filteredUsers.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            No users found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredUsers.map((user) => (
+                          <TableRow 
+                            key={user.id}
+                            className={selectedUser?.id === user.id ? "bg-muted/50" : "cursor-pointer"}
+                            onClick={() => setSelectedUser(user)}
+                          >
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <Avatar>
+                                  <AvatarImage src={user.photoUrl} alt={user.name} />
+                                  <AvatarFallback>{user.name?.split(' ').map(n => n[0]).join('') || 'U'}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium">{user.name}</p>
+                                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">{user.school || "N/A"}</TableCell>
+                            <TableCell>
+                              <Badge className={getLevelColor(user.level)}>
+                                {user.level || "N/A"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <span className="font-medium">{user.projectsCount || 0}</span>
+                                <span className="text-muted-foreground"> ({user.completedProjects || 0} done)</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium">{user.totalSpent || "₦0"}</TableCell>
+                            <TableCell>
+                              <Button size="sm" variant="ghost" onClick={() => setSelectedUser(user)}>
+                                View
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </CardContent>
