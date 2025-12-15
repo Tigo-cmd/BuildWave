@@ -9,7 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { getProjects } from "@/integrations/firebase/firebaseService";
 
 interface Project {
   id: string;
@@ -27,6 +29,7 @@ interface Project {
 const Admin = () => {
   const { signOut } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,50 +37,61 @@ const Admin = () => {
   const [levelFilter, setLevelFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
-
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const token = localStorage.getItem("buildwave_token");
-        const res = await fetch(`${API_BASE}/api/projects`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("Failed to fetch projects");
-        const data = await res.json();
+        setLoading(true);
+        // Fetch all projects at once
+        const allProjects = await getProjects();
+        console.log("Fetched projects:", allProjects);
 
-        // Map backend response to Project interface
-        const projectsData: Project[] = data.projects.map((p: any) => ({
+        // Map Firebase response to Project interface
+        const projectsData: Project[] = allProjects.map((p: any) => ({
           id: p.id,
-          title: p.title,
-          student: p.studentName || p.student?.name || "Unknown",
-          level: p.level || "N/A",
+          title: p.title || "Untitled",
+          student: p.student_name || "Unknown",
+          level: p.academic_level || "N/A",
           discipline: p.discipline || "N/A",
-          status: p.status,
+          status: p.status?.charAt(0).toUpperCase() + p.status?.slice(1) || "Pending",
           progress: p.progress || 0,
-          assignedTo: p.assignedTo || null,
-          deadline: p.deadline,
-          lastUpdated: p.updatedAt,
+          assignedTo: p.assigned_to || null,
+          deadline: p.deadline?.seconds
+            ? new Date(p.deadline.seconds * 1000).toLocaleDateString()
+            : p.deadline
+            ? new Date(p.deadline).toLocaleDateString()
+            : "N/A",
+          lastUpdated: p.updatedAt?.seconds 
+            ? new Date(p.updatedAt.seconds * 1000).toLocaleDateString()
+            : p.updatedAt 
+            ? new Date(p.updatedAt).toLocaleDateString()
+            : "N/A",
         }));
 
+        console.log("Mapped projects:", projectsData);
         setProjects(projectsData);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Fetch projects error:", err);
+        toast({
+          title: "Error",
+          description: "Failed to load projects: " + (err.message || "Unknown error"),
+          variant: "destructive",
+        });
+        setProjects([]); // Set empty array on error
       } finally {
         setLoading(false);
       }
     };
 
     fetchProjects();
-  }, []);
+  }, [toast]);
 
   const filteredProjects = projects.filter((project) => {
     const matchesSearch =
       project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.student.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesLevel = levelFilter === "all" || project.level === levelFilter;
-    const matchesStatus = statusFilter === "all" || project.status === statusFilter;
+    const matchesLevel = levelFilter === "all" || project.level?.toLowerCase() === levelFilter.toLowerCase();
+    const matchesStatus = statusFilter === "all" || project.status?.toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesLevel && matchesStatus;
   });
 
@@ -153,7 +167,7 @@ const Admin = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-primary">
-                  {projects.filter((p) => p.status === "In Progress").length}
+                  {projects.filter((p) => p.status?.toLowerCase() === "in_progress" || p.status === "In Progress").length}
                 </div>
               </CardContent>
             </Card>
@@ -163,7 +177,7 @@ const Admin = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-amber-500">
-                  {projects.filter((p) => p.status === "Review").length}
+                  {projects.filter((p) => p.status?.toLowerCase() === "review" || p.status === "Review").length}
                 </div>
               </CardContent>
             </Card>
@@ -173,7 +187,7 @@ const Admin = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-green-500">
-                  {projects.filter((p) => p.status === "Completed").length}
+                  {projects.filter((p) => p.status?.toLowerCase() === "completed" || p.status === "Completed").length}
                 </div>
               </CardContent>
             </Card>
@@ -211,10 +225,11 @@ const Admin = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="In Progress">In Progress</SelectItem>
-                    <SelectItem value="Review">Review</SelectItem>
-                    <SelectItem value="Completed">Completed</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="review">Review</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button variant="outline">

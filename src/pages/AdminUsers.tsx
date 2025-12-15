@@ -107,7 +107,7 @@ const AdminUsers = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-primary">
-                  {users.reduce((sum, u) => sum + u.projectsCount - u.completedProjects, 0)}
+                  {0}
                 </div>
               </CardContent>
             </Card>
@@ -117,7 +117,7 @@ const AdminUsers = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-green-500">
-                  {users.reduce((sum, u) => sum + u.completedProjects, 0)}
+                  {0}
                 </div>
               </CardContent>
             </Card>
@@ -126,7 +126,7 @@ const AdminUsers = () => {
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-amber-500">₦2.03M</div>
+                <div className="text-3xl font-bold text-amber-500">₦0</div>
               </CardContent>
             </Card>
           </div>
@@ -204,11 +204,11 @@ const AdminUsers = () => {
                             </TableCell>
                             <TableCell>
                               <div className="text-sm">
-                                <span className="font-medium">{user.projectsCount || 0}</span>
-                                <span className="text-muted-foreground"> ({user.completedProjects || 0} done)</span>
+                                <span className="font-medium">0</span>
+                                <span className="text-muted-foreground"> (0 done)</span>
                               </div>
                             </TableCell>
-                            <TableCell className="font-medium">{user.totalSpent || "₦0"}</TableCell>
+                            <TableCell className="font-medium">₦0</TableCell>
                             <TableCell>
                               <Button size="sm" variant="ghost" onClick={() => setSelectedUser(user)}>
                                 View
@@ -282,19 +282,19 @@ const AdminUsers = () => {
                     <div className="pt-4 border-t space-y-3">
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Projects</span>
-                        <span className="font-medium">{selectedUser.projectsCount}</span>
+                        <span className="font-medium">0</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Completed</span>
-                        <span className="font-medium text-green-500">{selectedUser.completedProjects}</span>
+                        <span className="font-medium text-green-500">0</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Total Spent</span>
-                        <span className="font-medium">{selectedUser.totalSpent}</span>
+                        <span className="font-medium">₦0</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Joined</span>
-                        <span className="text-sm">{selectedUser.joinedAt}</span>
+                        <span className="text-sm">{selectedUser.joinedAt || "N/A"}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Last Active</span>

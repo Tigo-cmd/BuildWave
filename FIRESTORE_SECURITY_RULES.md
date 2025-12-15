@@ -9,7 +9,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper functions
+    // Helper functions - MUST be defined before use
     function isAuth() {
       return request.auth.uid != null;
     }
@@ -18,14 +18,25 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
-    // Users collection
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/user_roles/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/user_roles/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Users collection (profiles)
     match /users/{userId} {
-      // Users can read their own profile
-      allow read: if isOwner(userId);
-      // Admins and the user can read all user profiles
+      // Authenticated users can read all user profiles
       allow read: if isAuth();
       // Users can write their own profile
       allow write: if isOwner(userId);
+    }
+    
+    // User roles collection
+    match /user_roles/{userId} {
+      // Authenticated users can read user roles (needed for admin verification)
+      allow read: if isAuth();
+      // Only admin can write user roles
+      allow write: if isAdmin();
     }
     
     // Projects collection
@@ -34,20 +45,30 @@ service cloud.firestore {
       allow read: if isAuth();
       // Authenticated users can create projects
       allow create: if isAuth();
-      // Users can update/delete their own projects
-      allow update, delete: if isAuth() && isOwner(resource.data.userId);
+      // Users can update their own projects, admins can update any
+      allow update, delete: if isAuth() && (isOwner(resource.data.user_id) || isAdmin());
+    }
+    
+    // Timeline collection
+    match /timeline/{timelineId} {
+      // Authenticated users can read timeline
+      allow read: if isAuth();
+      // Only authenticated users can create timeline entries
+      allow create: if isAuth();
+      // Only admin can modify
+      allow update, delete: if isAdmin();
     }
     
     // Testimonials collection
     match /testimonials/{testimonialId} {
-      // Anyone can read approved testimonials
-      allow read: if resource.data.approved == true;
-      // Authenticated users can read all testimonials
+      // Approved testimonials readable by anyone
+      allow read: if resource.data.status == 'approved';
+      // Authenticated users can read all testimonials (for admin)
       allow read: if isAuth();
       // Authenticated users can create testimonials
       allow create: if isAuth();
-      // Users can update/delete their own testimonials
-      allow update, delete: if isAuth() && isOwner(resource.data.userId);
+      // Users can update/delete their own, admins can update any
+      allow update, delete: if isAuth() && (isOwner(resource.data.user_id) || isAdmin());
     }
     
     // Topics collection (read-only)
@@ -57,19 +78,57 @@ service cloud.firestore {
       // No one can write (admin only via backend)
       allow write: if false;
     }
+    
+    // Services collection
+    match /services/{serviceId} {
+      // Anyone can read services
+      allow read: if true;
+      // No one can write (admin only via backend)
+      allow write: if false;
+    }
+    
+    // Messages collection
+    match /messages/{messageId} {
+      // Users can read their own messages
+      allow read: if isAuth() && (isOwner(resource.data.sender_id) || isOwner(resource.data.recipient_id));
+      // Authenticated users can create messages
+      allow create: if isAuth() && isOwner(request.auth.uid);
+      // Users can update their own messages
+      allow update, delete: if isAuth() && isOwner(resource.data.sender_id);
+    }
+    
+    // Deliverables collection
+    match /deliverables/{deliverableId} {
+      // Authenticated users can read deliverables
+      allow read: if isAuth();
+      // Authenticated users can create deliverables
+      allow create: if isAuth();
+      // Users can update/delete their own, admins can update any
+      allow update, delete: if isAuth() && (isOwner(resource.data.user_id) || isAdmin());
+    }
   }
 }
 ```
 
 ## Key Changes from Original
 
-1. **Users Collection**: Added `allow read: if isAuth()` to allow authenticated users to read all user profiles (needed for admin pages and user lookups)
+1. **User Roles Collection**: Added complete rules for `user_roles` - authenticated users can read to verify admin status, only admins can write
 
-2. **Projects Collection**: Simplified to allow all authenticated users to read all projects (needed for admin pages and dashboards)
+2. **isAdmin Helper Function**: Added function to check if a user is an admin by verifying their role in `user_roles` collection
 
-3. **Testimonials Collection**: Separated read rules - approved testimonials public, but authenticated users can read all
+3. **Users Collection**: Authenticated users can read all user profiles (needed for admin pages and lookups)
 
-4. **Helper Functions**: Added `isAuth()` and `isOwner()` for cleaner, more maintainable rules
+4. **Projects Collection**: Added admin permissions - admins can update/delete any project
+
+5. **Timeline Collection**: Added timeline-specific rules with admin write permissions
+
+6. **Testimonials Collection**: Separated read rules - approved testimonials public, authenticated users can read all
+
+7. **Messages Collection**: Added support for user-to-user messaging with proper access control
+
+8. **Deliverables Collection**: Added with proper access control for uploads
+
+9. **Helper Functions**: Added `isAdmin()` function that checks `user_roles` collection
 
 ## Deployment Steps
 
@@ -85,12 +144,14 @@ service cloud.firestore {
 After publishing, test that:
 - ✅ Authenticated users can read their own user document
 - ✅ Authenticated users can read other users' profiles (for admin pages)
+- ✅ Authenticated users can read user_roles to verify admin status
 - ✅ Authenticated users can read all projects
-- ✅ Users can only update/delete their own projects
+- ✅ Users can only update/delete their own projects (unless admin)
+- ✅ Only admins can write to user_roles
 - ✅ Approved testimonials are readable by everyone
 - ✅ Authenticated users can read all testimonials
-- ✅ Topics are readable by everyone
-- ✅ No one can write to topics
+- ✅ Topics and services are readable by everyone
+- ✅ No one can write to topics or services
 
 ## If Errors Persist
 

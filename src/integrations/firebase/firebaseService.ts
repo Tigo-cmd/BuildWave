@@ -548,20 +548,15 @@ export const createUserRole = async (userId: string, role: string) => {
  */
 export const getUserRole = async (userId: string) => {
   try {
-    const q = query(
-      collection(db, "user_roles"),
-      where("user_id", "==", userId),
-      orderBy("createdAt", "desc"),
-      limit(1)
-    );
-
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) {
+    // Get the user_roles document directly by user ID
+    const docRef = doc(db, "user_roles", userId);
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) {
       return null;
     }
 
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() };
+    return { id: docSnap.id, ...docSnap.data() };
   } catch (error) {
     console.error("Error getting user role:", error);
     throw error;

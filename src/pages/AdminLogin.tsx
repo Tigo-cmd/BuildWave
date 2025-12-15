@@ -28,19 +28,28 @@ const AdminLogin = () => {
 
       // Check if user has admin role
       const userRole = await getUserRole(userId);
+      console.log("User ID:", userId);
+      console.log("User Role Data:", userRole);
+      console.log("User Role Value:", (userRole as any)?.role);
       
-      if (userRole?.role === "admin") {
-        // Store user data
-        localStorage.setItem("buildwave_uid", userId);
-        localStorage.setItem("buildwave_user", JSON.stringify({
+      if ((userRole as any)?.role === "admin") {
+        // Store user data in both formats for compatibility
+        const adminUser = {
           id: userId,
           email: userCredential.user.email,
-          role: "admin"
-        }));
+          role: "admin",
+          name: userCredential.user.displayName || "Admin"
+        };
+        
+        localStorage.setItem("buildwave_uid", userId);
+        localStorage.setItem("buildwave_user", JSON.stringify(adminUser));
+        localStorage.setItem("user", JSON.stringify(adminUser)); // For useAuth hook compatibility
         
         toast.success("Admin login successful");
         navigate("/admin");
+        // console.log("Admin login successful for user ID:", userId);
       } else {
+        console.error("Not an admin. Role:", (userRole as any)?.role);
         toast.error("Access denied. Admin privileges required.");
       }
     } catch (err: any) {

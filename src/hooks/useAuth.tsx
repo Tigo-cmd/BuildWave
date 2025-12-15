@@ -27,7 +27,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Load user on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
+    // Check for user in localStorage (standard user or buildwave_user)
+    let storedUser = localStorage.getItem("user");
+    if (!storedUser) {
+      // Fallback to buildwave_user for admin users
+      const buildwaveUser = localStorage.getItem("buildwave_user");
+      if (buildwaveUser) {
+        storedUser = buildwaveUser;
+      }
+    }
+    
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
@@ -79,6 +88,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("buildwave_uid");
+    localStorage.removeItem("buildwave_user");
     setUser(null);
     toast.success("Signed out successfully");
   };

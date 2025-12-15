@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "lucide-react";
 import { useFirebaseAuth } from "@/integrations/firebase/useFirebaseAuth";
@@ -30,7 +30,8 @@ export const ProjectRequestModal = ({
   onOpenChange,
   prefilledService,
 }: ProjectRequestModalProps) => {
-  const { user } = useFirebaseAuth();
+  const { user: firebaseUser } = useFirebaseAuth();
+  const [userId, setUserId] = useState<string | null>(null);
   const [needTopic, setNeedTopic] = useState(false);
   const [haveProject, setHaveProject] = useState(false);
   const [contactMethod, setContactMethod] = useState<"email" | "whatsapp">(
@@ -39,12 +40,25 @@ export const ProjectRequestModal = ({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
+  // Get user ID from Firebase or localStorage
+  useEffect(() => {
+    if (firebaseUser?.uid) {
+      setUserId(firebaseUser.uid);
+    } else {
+      // Fallback to localStorage if Firebase auth not ready
+      const storedUid = localStorage.getItem("buildwave_uid");
+      if (storedUid) {
+        setUserId(storedUid);
+      }
+    }
+  }, [firebaseUser]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      if (!user) {
+      if (!userId) {
         toast({
           title: "❌ Not Authenticated",
           description: "Please sign in first to submit a project.",
@@ -68,7 +82,7 @@ export const ProjectRequestModal = ({
 
       // Create project in Firestore
       const projectId = await createProject({
-        userId: user.uid,
+        userId: userId,  // Use the current logged-in user ID
         title: title || "Untitled Project",
         category: discipline,
         description,

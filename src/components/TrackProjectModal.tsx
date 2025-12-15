@@ -38,7 +38,7 @@ export const TrackProjectModal = ({ open, onOpenChange }: TrackProjectModalProps
       }
 
       // Get project creator's user document to verify email
-      const projectCreator = await getUser((project as any).userId);
+      const projectCreator = await getUser((project as any).user_id);
 
       if (!projectCreator) {
         toast({
