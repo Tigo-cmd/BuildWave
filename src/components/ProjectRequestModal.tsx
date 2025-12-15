@@ -14,6 +14,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "lucide-react";
+import { useFirebaseAuth } from "@/integrations/firebase/useFirebaseAuth";
+import { createProject } from "@/integrations/firebase/firebaseService";
+import { storage } from "@/integrations/firebase/config";
+import { ref, uploadBytes } from "firebase/storage";
 
 interface ProjectRequestModalProps {
   open: boolean;
@@ -21,13 +25,12 @@ interface ProjectRequestModalProps {
   prefilledService?: string;
 }
 
-const API_BASE = "http://localhost:5000";
-
 export const ProjectRequestModal = ({
   open,
   onOpenChange,
   prefilledService,
 }: ProjectRequestModalProps) => {
+  const { user } = useFirebaseAuth();
   const [needTopic, setNeedTopic] = useState(false);
   const [haveProject, setHaveProject] = useState(false);
   const [contactMethod, setContactMethod] = useState<"email" | "whatsapp">(
@@ -41,7 +44,16 @@ export const ProjectRequestModal = ({
     setLoading(true);
 
     try {
-      const token = localStorage.getItem("buildwave_token");
+      if (!user) {
+        toast({
+          title: "❌ Not Authenticated",
+          description: "Please sign in first to submit a project.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       const form = e.target as HTMLFormElement;
 
       // Gather form values
@@ -54,46 +66,35 @@ export const ProjectRequestModal = ({
       const budget = (form.elements.namedItem("budget") as HTMLInputElement).value;
       const fileInput = form.elements.namedItem("file") as HTMLInputElement;
 
-      // Create project with JSON first
-      const res = await fetch(`${API_BASE}/api/projects`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          project_title: title,
-          academic_level: level,
-          discipline,
-          description,
-          phone,
-          needTopic,
-          haveProject,
-          contactMethod,
-          deadline,
-          budget,
-        }),
+      // Create project in Firestore
+      const projectId = await createProject({
+        userId: user.uid,
+        title: title || "Untitled Project",
+        category: discipline,
+        description,
+        status: "pending",
+        deadline: deadline ? new Date(deadline) : null,
+        budget,
+        phone,
+        level,
+        needTopic,
+        haveProject,
+        contactMethod,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to submit project");
-
-      const projectId = data.projectId;
-
-      // If files were selected, upload them
+      // If files were selected, upload them to Cloud Storage
       if (fileInput?.files?.length) {
-        const formData = new FormData();
-        for (let i = 0; i < fileInput.files.length; i++) {
-          formData.append("file", fileInput.files[i]);
-        }
-
-        const uploadRes = await fetch(`${API_BASE}/api/projects/${projectId}/deliverable`, {
-          method: "POST",
-          body: formData,
+        const uploadPromises = Array.from(fileInput.files).map(async (file) => {
+          try {
+            const storageRef = ref(storage, `projects/${projectId}/files/${file.name}`);
+            await uploadBytes(storageRef, file);
+          } catch (error) {
+            console.error(`Failed to upload file ${file.name}:`, error);
+            // Continue uploading other files
+          }
         });
 
-        const uploadData = await uploadRes.json();
-        if (!uploadRes.ok) throw new Error(uploadData.error || "File upload failed");
+        await Promise.all(uploadPromises);
       }
 
       toast({
@@ -108,9 +109,10 @@ export const ProjectRequestModal = ({
       setContactMethod("email");
       onOpenChange(false);
     } catch (err: any) {
+      console.error("Project submission error:", err);
       toast({
         title: "❌ Submission Failed",
-        description: err.message,
+        description: err.message || "Unable to submit project. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -126,7 +128,7 @@ export const ProjectRequestModal = ({
             Request a Project
           </DialogTitle>
           <DialogDescription>
-            Fill in the details below and we’ll get started on your project.
+            Fill in the details below and we'll get started on your project.
           </DialogDescription>
         </DialogHeader>
 
@@ -139,6 +141,7 @@ export const ProjectRequestModal = ({
               name="title"
               placeholder="e.g., Smart Home Automation System"
               defaultValue={prefilledService}
+              disabled={loading}
             />
           </div>
 
@@ -149,9 +152,10 @@ export const ProjectRequestModal = ({
                 id="needTopic"
                 checked={needTopic}
                 onCheckedChange={(checked) => {
-                  setNeedTopic(checked as boolean);
+                  setNeedTopic(checked === true);
                   if (checked) setHaveProject(false);
                 }}
+                disabled={loading}
               />
               <Label htmlFor="needTopic" className="font-medium">
                 I need help selecting a topic
@@ -162,9 +166,10 @@ export const ProjectRequestModal = ({
                 id="haveProject"
                 checked={haveProject}
                 onCheckedChange={(checked) => {
-                  setHaveProject(checked as boolean);
+                  setHaveProject(checked === true);
                   if (checked) setNeedTopic(false);
                 }}
+                disabled={loading}
               />
               <Label htmlFor="haveProject" className="font-medium">
                 I already have a project topic
@@ -181,6 +186,7 @@ export const ProjectRequestModal = ({
                 name="level"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
                 required
+                disabled={loading}
               >
                 <option value="">Select level</option>
                 <option value="undergraduate">Undergraduate</option>
@@ -190,7 +196,13 @@ export const ProjectRequestModal = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="discipline">Discipline</Label>
-              <Input id="discipline" name="discipline" placeholder="e.g., Computer Science" required />
+              <Input
+                id="discipline"
+                name="discipline"
+                placeholder="e.g., Computer Science"
+                required
+                disabled={loading}
+              />
             </div>
           </div>
 
@@ -203,6 +215,7 @@ export const ProjectRequestModal = ({
               placeholder="Describe what you need help with..."
               rows={4}
               required
+              disabled={loading}
             />
           </div>
 
@@ -211,20 +224,39 @@ export const ProjectRequestModal = ({
             <div className="space-y-2">
               <Label htmlFor="deadline">Deadline</Label>
               <div className="relative">
-                <Input id="deadline" name="deadline" type="date" required />
+                <Input
+                  id="deadline"
+                  name="deadline"
+                  type="date"
+                  required
+                  disabled={loading}
+                />
                 <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="budget">Budget Estimate (Optional)</Label>
-              <Input id="budget" name="budget" type="text" placeholder="₦100,000 - ₦200,000" />
+              <Input
+                id="budget"
+                name="budget"
+                type="text"
+                placeholder="₦100,000 - ₦200,000"
+                disabled={loading}
+              />
             </div>
           </div>
 
           {/* File Upload */}
           <div className="space-y-2">
             <Label htmlFor="file">Upload Documents (Optional)</Label>
-            <Input id="file" name="file" type="file" multiple className="cursor-pointer" />
+            <Input
+              id="file"
+              name="file"
+              type="file"
+              multiple
+              className="cursor-pointer"
+              disabled={loading}
+            />
             <p className="text-xs text-muted-foreground">
               Upload project briefs, requirements, or any relevant documents
             </p>
@@ -233,7 +265,13 @@ export const ProjectRequestModal = ({
           {/* Phone */}
           <div className="space-y-2">
             <Label htmlFor="phone">Phone Number (Optional)</Label>
-            <Input id="phone" name="phone" type="tel" placeholder="+234 XXX XXX XXXX" />
+            <Input
+              id="phone"
+              name="phone"
+              type="tel"
+              placeholder="+234 XXX XXX XXXX"
+              disabled={loading}
+            />
           </div>
 
           {/* Contact Method */}
@@ -246,13 +284,13 @@ export const ProjectRequestModal = ({
               }
             >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="email" id="email" />
+                <RadioGroupItem value="email" id="email" disabled={loading} />
                 <Label htmlFor="email" className="font-normal">
                   Email
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="whatsapp" id="whatsapp" />
+                <RadioGroupItem value="whatsapp" id="whatsapp" disabled={loading} />
                 <Label htmlFor="whatsapp" className="font-normal">
                   WhatsApp
                 </Label>

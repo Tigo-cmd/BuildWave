@@ -71,7 +71,7 @@ const Dashboard = () => {
       const userProfile = await getUser(authUser.uid);
       if (userProfile) {
         setUser({
-          name: (userProfile as any)?.name || authUser.displayName || "Student",
+          name: (userProfile as any)?.full_name || (userProfile as any)?.name || authUser.displayName || "Student",
           school: (userProfile as any)?.school,
           email: (userProfile as any)?.email,
         });

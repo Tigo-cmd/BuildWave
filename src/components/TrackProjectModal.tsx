@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { getProject, getUser } from "@/integrations/firebase/firebaseService";
 
 interface TrackProjectModalProps {
   open: boolean;
@@ -19,17 +20,42 @@ export const TrackProjectModal = ({ open, onOpenChange }: TrackProjectModalProps
   const [loading, setLoading] = useState(false);
 
   const handleTrack = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      const res = await fetch(`http://localhost:5000/api/projects/${projectId}?email=${email}`);
-      const data = await res.json();
+      // Fetch project from Firestore
+      const project = await getProject(projectId);
 
-      if (!res.ok) {
+      if (!project) {
         toast({
           title: "❌ Project Not Found",
-          description: data.error || "Invalid Project ID or Email.",
+          description: "Invalid Project ID. Please check and try again.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Get project creator's user document to verify email
+      const projectCreator = await getUser((project as any).userId);
+
+      if (!projectCreator) {
+        toast({
+          title: "❌ Project Creator Not Found",
+          description: "Unable to verify project ownership.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Verify email matches project creator's email
+      const creatorEmail = (projectCreator as any).email || "";
+      if (creatorEmail.toLowerCase() !== email.toLowerCase()) {
+        toast({
+          title: "❌ Email Mismatch",
+          description: "The email doesn't match the project creator's email.",
           variant: "destructive",
         });
         setLoading(false);
@@ -45,20 +71,20 @@ export const TrackProjectModal = ({ open, onOpenChange }: TrackProjectModalProps
       onOpenChange(false);
 
       setTimeout(() => {
-        navigate(`/track/${projectId}`, { state: { project: data } });
+        navigate(`/track/${projectId}`, { state: { project } });
       }, 500);
 
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Track project error:", error);
       toast({
-        title: "❌ Network Error",
-        description: "Unable to reach server. Try again later.",
+        title: "❌ Error",
+        description: error.message || "Unable to track project. Try again later.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
-
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -77,15 +103,14 @@ export const TrackProjectModal = ({ open, onOpenChange }: TrackProjectModalProps
             <Input
               id="projectId"
               name="projectId"
-              placeholder="BW-2025-0001"
+              placeholder="Enter your project ID"
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
               required
-              pattern="BW-\d{4}-\d{4}"
-              title="Format: BW-YYYY-NNNN"
+              disabled={loading}
             />
             <p className="text-xs text-muted-foreground">
-              Format: BW-2025-0001 (check your confirmation email)
+              Check your project confirmation email for the ID
             </p>
           </div>
 
@@ -100,7 +125,11 @@ export const TrackProjectModal = ({ open, onOpenChange }: TrackProjectModalProps
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={loading}
             />
+            <p className="text-xs text-muted-foreground">
+              Use the email associated with this project
+            </p>
           </div>
 
           {/* Divider */}
