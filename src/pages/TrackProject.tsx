@@ -9,9 +9,7 @@ import { useParams } from "react-router-dom";
 import { Download, User, Clock, MessageSquare } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 import { useToast } from "@/components/ui/use-toast";
-
-
-const API_BASE =  "http://localhost:5000";
+import { getProject, getProjectTimeline } from "@/integrations/firebase/firebaseService";
 
 const TrackProject = () => {
   const [trackModalOpen, setTrackModalOpen] = useState(false);
@@ -19,6 +17,7 @@ const TrackProject = () => {
   const { toast } = useToast();
 
   const [project, setProject] = useState<any>(null);
+  const [timeline, setTimeline] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -26,18 +25,18 @@ const TrackProject = () => {
     const fetchProject = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem("buildwave_token");
 
-        const res = await fetch(`${API_BASE}/api/projects/${projectId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        if (!projectId) throw new Error("Project ID not found");
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Failed to load project");
+        // Fetch project
+        const projectData = await getProject(projectId);
+        if (!projectData) throw new Error("Project not found");
 
-        setProject(data.project);
+        // Fetch timeline
+        const timelineData = await getProjectTimeline(projectId);
+
+        setProject(projectData);
+        setTimeline(timelineData);
       } catch (err: any) {
         console.error("Error loading project:", err.message);
         setError(err.message);
@@ -53,7 +52,7 @@ const TrackProject = () => {
     };
 
     if (projectId) fetchProject();
-  }, [projectId]);
+  }, [projectId, toast]);
 
   // Loading UI
   if (loading) {
@@ -147,15 +146,15 @@ const TrackProject = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {project.timeline?.map((event: any, index: number) => (
-                    <div key={index} className="flex gap-4">
+                  {timeline.map((event: any, index: number) => (
+                    <div key={event.id} className="flex gap-4">
                       <div className="flex flex-col items-center">
                         <div
                           className={`h-3 w-3 rounded-full ${
-                            event.actor === "admin" ? "bg-primary" : "bg-muted"
+                            event.actor_type === "admin" ? "bg-primary" : "bg-muted"
                           }`}
                         />
-                        {index < project.timeline.length - 1 && (
+                        {index < timeline.length - 1 && (
                           <div className="w-0.5 h-12 bg-border" />
                         )}
                       </div>
@@ -163,9 +162,13 @@ const TrackProject = () => {
                       <div className="flex-1 pb-4">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                           <Clock className="h-3 w-3" />
-                          <span>{event.time}</span>
+                          <span>
+                            {event.createdAt
+                              ? new Date(event.createdAt.seconds * 1000).toLocaleDateString()
+                              : "Recently"}
+                          </span>
                         </div>
-                        <p className="text-sm">{event.text}</p>
+                        <p className="text-sm">{event.activity_text}</p>
                       </div>
                     </div>
                   ))}

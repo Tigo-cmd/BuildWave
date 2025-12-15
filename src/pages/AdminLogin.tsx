@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
-
-const API_BASE_URL = "http://localhost:5000"; // Flask backend
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/integrations/firebase/config";
+import { getUserRole } from "@/integrations/firebase/firebaseService";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -21,35 +22,36 @@ const AdminLogin = () => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      // Sign in with Firebase Auth
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userId = userCredential.user.uid;
 
-      if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.error || "Invalid credentials");
-        setLoading(false);
-        return;
-      }
-
-      const data = await res.json();
-      const user = data.user;
-
-      if (user?.role === "admin") {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(user));
+      // Check if user has admin role
+      const userRole = await getUserRole(userId);
+      
+      if (userRole?.role === "admin") {
+        // Store user data
+        localStorage.setItem("buildwave_uid", userId);
+        localStorage.setItem("buildwave_user", JSON.stringify({
+          id: userId,
+          email: userCredential.user.email,
+          role: "admin"
+        }));
+        
         toast.success("Admin login successful");
         navigate("/admin");
       } else {
         toast.error("Access denied. Admin privileges required.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Login error", err);
-      toast.error("Server error. Please try again later.");
+      const errorMsg = err.code === "auth/user-not-found" 
+        ? "Invalid email or password"
+        : err.code === "auth/wrong-password"
+        ? "Invalid email or password"
+        : err.message || "Login failed";
+      
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }

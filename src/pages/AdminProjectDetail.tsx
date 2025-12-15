@@ -11,20 +11,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
+import { getProject, updateProject, getUser, createTimeline, getProjectTimeline } from "@/integrations/firebase/firebaseService";
 
 interface Deliverable {
   id: string;
   name: string;
-  uploadedAt: string;
-  url: string;
+  file_url: string;
+  file_size?: number;
+  created_at?: string;
 }
 
 interface TimelineEvent {
-  date: string;
-  actor: string;
-  text: string;
-  type: string;
+  id: string;
+  activity_text: string;
+  actor_id: string | null;
+  actor_type: "student" | "admin" | "system";
+  createdAt?: any;
 }
 
 interface Student {
@@ -32,24 +35,25 @@ interface Student {
   email: string;
   phone: string;
   school: string;
-  level: string;
-  course: string;
+  education_level: string;
+  course_of_study: string;
 }
 
 interface Project {
   id: string;
   title: string;
-  student: Student;
+  description?: string;
+  user_id: string;
   status: string;
   progress: number;
-  assignedTo?: string;
+  assigned_to?: string;
   deadline?: string;
-  createdAt: string;
+  createdAt?: any;
   discipline?: string;
-  description?: string;
-  budget?: string;
-  timeline: TimelineEvent[];
-  deliverables: Deliverable[];
+  academic_level?: string;
+  budget_estimate?: number;
+  phone?: string;
+  needs_topic?: boolean;
 }
 
 const AdminProjectDetail = () => {
@@ -57,49 +61,48 @@ const AdminProjectDetail = () => {
   const { toast } = useToast();
 
   const [project, setProject] = useState<Project | null>(null);
+  const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
   const [progressValue, setProgressValue] = useState(0);
   const [progressNote, setProgressNote] = useState("");
-  const [notificationMessage, setNotificationMessage] = useState("");
-
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+  const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
 
   useEffect(() => {
     const fetchProject = async () => {
       try {
-        const token = localStorage.getItem("buildwave_token");
-        const res = await fetch(`${API_BASE}/api/projects/${projectId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("Failed to fetch project");
-        const data = await res.json();
+        setLoading(true);
+        if (!projectId) throw new Error("Project ID not found");
 
-        // Build student object from backend response
-        const student: Student = {
-          name: data.project?.studentName || data.project.contact?.email || "Unknown",
-          email: data.project.contact?.email || "N/A",
-          phone: data.project.contact?.phone || "N/A",
-          school: data.project.school || "N/A",
-          level: data.project.level || "N/A",
-          course: data.project.discipline || "N/A",
+        // Fetch project details
+        const projectData = await getProject(projectId);
+        if (!projectData) throw new Error("Project not found");
+
+        // Fetch student details
+        const studentData = await getUser(projectData.user_id);
+        
+        const studentInfo: Student = {
+          name: studentData?.full_name || "Unknown",
+          email: studentData?.email || "N/A",
+          phone: studentData?.phone || "N/A",
+          school: studentData?.school || "N/A",
+          education_level: studentData?.education_level || "N/A",
+          course_of_study: studentData?.course_of_study || "N/A",
         };
 
-        const projectData: Project = {
-          ...data.project,
-          student,
-          timeline: data.project.timeline || [],
-          deliverables: data.project.deliverables || [],
-        };
+        // Fetch timeline
+        const timelineData = await getProjectTimeline(projectId);
 
-        setProject(projectData);
+        setProject(projectData as Project);
+        setStudent(studentInfo);
+        setTimeline(timelineData);
         setStatus(projectData.status);
         setProgressValue(projectData.progress || 0);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Fetch project error:", err);
         toast({
           title: "Error",
-          description: "Could not load project details",
+          description: err.message || "Could not load project details",
           variant: "destructive",
         });
       } finally {
@@ -113,20 +116,10 @@ const AdminProjectDetail = () => {
   const handleStatusUpdate = async () => {
     if (!project) return;
     try {
-      const token = localStorage.getItem("buildwave_token");
-      const res = await fetch(`${API_BASE}/api/projects/${project.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status, progress: progressValue }),
-      });
-      if (!res.ok) throw new Error("Failed to update project");
-
-      toast({ title: "Status Updated", description: `Project status changed to ${status}` });
+      await updateProject(project.id, { status, progress: progressValue });
+      toast({ title: "Success", description: `Project status changed to ${status}` });
       setProject({ ...project, status, progress: progressValue });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       toast({ title: "Error", description: "Failed to update project", variant: "destructive" });
     }
@@ -140,40 +133,25 @@ const AdminProjectDetail = () => {
     if (!project) return;
 
     try {
-      const token = localStorage.getItem("buildwave_token");
-      const res = await fetch(`${API_BASE}/api/projects/${project.id}/progress-request`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const entryId = await createTimeline(project.id, progressNote, "admin-user-id", "admin");
+      
+      toast({ title: "Success", description: "Progress note added successfully" });
+      
+      setTimeline([
+        {
+          id: entryId,
+          activity_text: progressNote,
+          actor_id: "admin-user-id",
+          actor_type: "admin",
+          createdAt: new Date(),
         },
-        body: JSON.stringify({ message: progressNote }),
-      });
-      if (!res.ok) throw new Error("Failed to add progress note");
-
-      toast({ title: "Progress Updated", description: "Progress note added successfully" });
-      setProject({
-        ...project,
-        timeline: [
-          ...project.timeline,
-          { date: new Date().toISOString(), actor: "admin", text: progressNote, type: "progress" },
-        ],
-      });
+        ...timeline,
+      ]);
       setProgressNote("");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       toast({ title: "Error", description: "Failed to add progress note", variant: "destructive" });
     }
-  };
-
-  const handleSendNotification = () => {
-    if (!notificationMessage.trim()) {
-      toast({ title: "Error", description: "Please enter a message", variant: "destructive" });
-      return;
-    }
-    // Implement notification API call if needed
-    toast({ title: "Notification Sent", description: "Student has been notified" });
-    setNotificationMessage("");
   };
 
   const getStatusColor = (status: string) => {
@@ -237,16 +215,16 @@ const AdminProjectDetail = () => {
               <CardContent className="space-y-4">
                 <div>
                   <Label className="text-muted-foreground">Description</Label>
-                  <p className="mt-1">{project.description}</p>
+                  <p className="mt-1">{project.description || "No description"}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-muted-foreground">Discipline</Label>
-                    <p className="mt-1 font-medium">{project.discipline}</p>
+                    <p className="mt-1 font-medium">{project.discipline || "N/A"}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Budget</Label>
-                    <p className="mt-1 font-medium">{project.budget}</p>
+                    <p className="mt-1 font-medium">₦{project.budget_estimate?.toLocaleString() || "0"}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Created</Label>

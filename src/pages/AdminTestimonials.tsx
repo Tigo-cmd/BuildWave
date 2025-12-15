@@ -1,138 +1,133 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Check, X, Star, Eye } from "lucide-react";
+import { ArrowLeft, Check, X, Star, Eye, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  getAllTestimonials,
+  approveTestimonial,
+  rejectTestimonial,
+  featureTestimonial,
+} from "@/integrations/firebase/firebaseService";
 
 // Types
 type Testimonial = {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   school: string;
   course: string;
-  photoUrl: string;
+  photo_url?: string;
   rating: number;
   review: string;
-  projectId: string | null;
+  user_id?: string | null;
   status: "pending" | "approved" | "rejected";
-  submittedAt: string;
-  approvedAt?: string;
-  rejectedAt?: string;
-  rejectedReason?: string;
-  featured: boolean;
+  is_featured: boolean;
+  createdAt?: any;
 };
-
-// Mock data
-const mockTestimonials: Testimonial[] = [
-  {
-    id: "t1",
-    name: "Amaka Okoye",
-    email: "amaka.okoye@unilag.edu.ng",
-    school: "University of Lagos",
-    course: "Computer Engineering (Final Year)",
-    photoUrl: "/placeholder.svg",
-    rating: 5,
-    review: "BuildWave handled my final year project from proposal to deployment. The team was professional, responsive, and delivered beyond my expectations. My IoT system works perfectly!",
-    projectId: "BW-2025-0042",
-    status: "pending" as const,
-    submittedAt: "2025-09-25T14:30:00Z",
-    featured: false
-  },
-  {
-    id: "t2",
-    name: "Ibrahim Yusuf",
-    email: "ibrahim.y@ui.edu.ng",
-    school: "University of Ibadan",
-    course: "Computer Science (MSc)",
-    photoUrl: "/placeholder.svg",
-    rating: 5,
-    review: "Excellent service! They helped me with my machine learning thesis implementation. The code was clean, well-documented, and worked flawlessly. Highly recommended!",
-    projectId: "BW-2025-0041",
-    status: "approved" as const,
-    submittedAt: "2025-09-20T10:00:00Z",
-    approvedAt: "2025-09-21T09:00:00Z",
-    featured: true
-  },
-  {
-    id: "t3",
-    name: "Grace Nwosu",
-    email: "grace.n@covenant.edu.ng",
-    school: "Covenant University",
-    course: "Information Systems (PhD)",
-    photoUrl: "/placeholder.svg",
-    rating: 4,
-    review: "Great experience working with BuildWave. They understood my research requirements and delivered quality work. Communication could be slightly faster, but overall very satisfied.",
-    projectId: "BW-2025-0040",
-    status: "pending" as const,
-    submittedAt: "2025-09-24T16:00:00Z",
-    featured: false
-  },
-  {
-    id: "t4",
-    name: "David Eze",
-    email: "david.eze@spam.com",
-    school: "Unknown",
-    course: "N/A",
-    photoUrl: "/placeholder.svg",
-    rating: 5,
-    review: "Amazing! Best service ever! Click here to learn more: http://spam-link.com",
-    projectId: null,
-    status: "rejected" as const,
-    submittedAt: "2025-09-23T11:00:00Z",
-    rejectedAt: "2025-09-23T12:00:00Z",
-    rejectedReason: "Spam content detected",
-    featured: false
-  }
-];
 
 const AdminTestimonials = () => {
   const { toast } = useToast();
-  const [testimonials, setTestimonials] = useState(mockTestimonials);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("pending");
 
-  const handleApprove = (id: string) => {
-    setTestimonials(prev => prev.map(t => 
-      t.id === id 
-        ? { ...t, status: "approved", approvedAt: new Date().toISOString() }
-        : t
-    ));
-    toast({
-      title: "Testimonial Approved",
-      description: "The testimonial is now visible on the site",
-    });
+  // Fetch testimonials
+  useEffect(() => {
+    const fetchTestimonials = async () => {
+      try {
+        setLoading(true);
+        const data = await getAllTestimonials();
+        setTestimonials(data as Testimonial[]);
+      } catch (err: any) {
+        console.error("Error fetching testimonials:", err);
+        toast({
+          title: "Error",
+          description: "Failed to load testimonials",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTestimonials();
+  }, [toast]);
+
+  const handleApprove = async (id: string) => {
+    try {
+      await approveTestimonial(id);
+      setTestimonials((prev) =>
+        prev.map((t) =>
+          t.id === id ? { ...t, status: "approved" as const } : t
+        )
+      );
+      toast({
+        title: "Success",
+        description: "Testimonial approved",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleReject = (id: string) => {
+  const handleReject = async (id: string) => {
     const reason = prompt("Enter rejection reason:");
     if (!reason) return;
 
-    setTestimonials(prev => prev.map(t => 
-      t.id === id 
-        ? { ...t, status: "rejected", rejectedAt: new Date().toISOString(), rejectedReason: reason }
-        : t
-    ));
-    toast({
-      title: "Testimonial Rejected",
-      description: "The student has been notified",
-    });
+    try {
+      await rejectTestimonial(id);
+      setTestimonials((prev) =>
+        prev.map((t) =>
+          t.id === id ? { ...t, status: "rejected" as const } : t
+        )
+      );
+      toast({
+        title: "Success",
+        description: "Testimonial rejected",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleToggleFeatured = (id: string) => {
-    setTestimonials(prev => prev.map(t => 
-      t.id === id ? { ...t, featured: !t.featured } : t
-    ));
-    toast({
-      title: testimonials.find(t => t.id === id)?.featured ? "Removed from Featured" : "Marked as Featured",
-      description: testimonials.find(t => t.id === id)?.featured 
-        ? "Testimonial removed from featured section" 
-        : "Testimonial will appear in featured section",
-    });
+  const handleToggleFeatured = async (id: string) => {
+    try {
+      const testimonial = testimonials.find((t) => t.id === id);
+      if (!testimonial) return;
+
+      await featureTestimonial(id, !testimonial.is_featured);
+      setTestimonials((prev) =>
+        prev.map((t) =>
+          t.id === id ? { ...t, is_featured: !t.is_featured } : t
+        )
+      );
+      toast({
+        title: "Success",
+        description: testimonial.is_featured
+          ? "Removed from featured"
+          : "Added to featured",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const renderStars = (rating: number) => {
@@ -151,6 +146,17 @@ const AdminTestimonials = () => {
   };
 
   const filteredTestimonials = testimonials.filter(t => t.status === activeTab);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p>Loading testimonials...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -207,7 +213,7 @@ const AdminTestimonials = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-primary">
-                  {testimonials.filter(t => t.featured).length}
+                  {testimonials.filter(t => t.is_featured).length}
                 </div>
               </CardContent>
             </Card>
@@ -235,7 +241,7 @@ const AdminTestimonials = () => {
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
                           <Avatar>
-                            <AvatarImage src={testimonial.photoUrl} alt={testimonial.name} />
+                            <AvatarImage src={testimonial.photo_url} alt={testimonial.name} />
                             <AvatarFallback>{testimonial.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                           </Avatar>
                           <div>
@@ -246,16 +252,16 @@ const AdminTestimonials = () => {
                           </div>
                         </div>
                         <div className="flex flex-col gap-2">
-                          {testimonial.featured && (
+                          {testimonial.is_featured && (
                             <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20">
                               Featured
                             </Badge>
                           )}
-                          {testimonial.projectId && (
+                          {testimonial.user_id && (
                             <Button size="sm" variant="ghost" asChild>
-                              <Link to={`/admin/projects/${testimonial.projectId}`}>
+                              <Link to={`/dashboard`}>
                                 <Eye className="h-3 w-3 mr-1" />
-                                View Project
+                                View User
                               </Link>
                             </Button>
                           )}
@@ -266,16 +272,12 @@ const AdminTestimonials = () => {
                       <p className="text-sm">{testimonial.review}</p>
                       
                       <div className="flex flex-col gap-2 text-xs text-muted-foreground">
-                        <div>Submitted: {new Date(testimonial.submittedAt).toLocaleString()}</div>
-                        {testimonial.approvedAt && (
-                          <div>Approved: {new Date(testimonial.approvedAt).toLocaleString()}</div>
-                        )}
-                        {testimonial.rejectedAt && (
-                          <div className="text-destructive">
-                            Rejected: {new Date(testimonial.rejectedAt).toLocaleString()}
-                            {testimonial.rejectedReason && ` - ${testimonial.rejectedReason}`}
-                          </div>
-                        )}
+                        <div>
+                          Submitted: {testimonial.createdAt 
+                            ? new Date(testimonial.createdAt.seconds * 1000).toLocaleString()
+                            : "N/A"
+                          }
+                        </div>
                       </div>
 
                       {testimonial.status === "pending" && (
@@ -308,7 +310,7 @@ const AdminTestimonials = () => {
                           className="w-full"
                         >
                           <Star className="h-4 w-4 mr-2" />
-                          {testimonial.featured ? "Remove from Featured" : "Mark as Featured"}
+                          {testimonial.is_featured ? "Remove from Featured" : "Mark as Featured"}
                         </Button>
                       )}
                     </CardContent>
