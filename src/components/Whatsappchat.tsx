@@ -1,5 +1,5 @@
 // Lightweight local WhatsApp SVG icon to avoid depending on react-icons
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const WhatsappIcon = ({ size = 24 }: { size?: number }) => (
   <svg
@@ -18,11 +18,27 @@ const WhatsappIcon = ({ size = 24 }: { size?: number }) => (
 
 export default function WhatsappChat() {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [whatsappLink, setWhatsappLink] = useState("");
+  
   const whatsappNumber = "2347016162040";
-  const whatsappMessage = "Hi BuildWave, I need help with a project.";
-  const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-    whatsappMessage
-  )}`;
+
+  // Build WhatsApp message with user details
+  useEffect(() => {
+    const buildwaveUser = localStorage.getItem("buildwave_user");
+    let message = "Hi BuildWave, I need help with a project.";
+
+    if (buildwaveUser) {
+      try {
+        const user = JSON.parse(buildwaveUser);
+        message = `Hi BuildWave, I'm ${user.name || "a student"} (${user.email || "no email"}) and I need help with a project.`;
+      } catch (e) {
+        // If parsing fails, use default message
+      }
+    }
+
+    const link = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    setWhatsappLink(link);
+  }, []);
 
   return (
     <div

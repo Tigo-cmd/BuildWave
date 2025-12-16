@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { link } from 'fs';
 
 const caseStudies = [
 	{
@@ -22,7 +23,7 @@ const caseStudies = [
 		school: 'Micheal Okpara University of Agriculture, Umudike',
 		description:
 			'Text-to-speech application leveraging Groq PlayAITTS for high-quality, natural-sounding speech synthesis from text input',
-		image: 'Healthcare AI system with medical data visualization and predictions',
+		image: '/tts.png',
 		results: 'Up to 95% natural-sounding speech generation and 15 voices',
 		link: 'https://text-to-speech-mini-app.vercel.app/',
 	},
@@ -37,6 +38,69 @@ const caseStudies = [
 		results: 'Won Best Project Award',
 		link: 'https://example.com/ecommerce-platform',
 	},
+	{
+		id: 4,
+		title: 'Whisper-net: ICP blockChain based Secure End to End Encryption Messaging App',
+		student: 'Igbariam Kosi, MSc Computer Engineering',
+		school: 'University of Nigeria, Nsukka',
+		description:
+			'Blockchain-based messaging app ensuring secure end-to-end encryption using ICP technology for enhanced privacy and data integrity',
+		image: '/whisper.net.png',
+		results: 'Enhanced security with zero data breaches',
+		link: 'https://whisper-icp-net.vercel.app/',
+	},
+	{
+		id: 5,
+		title: 'IOT Based Speech to Text For the Hearing Impaired',
+		student: 'Chikwendu Chidindu treasure, BSc Computer Engineering',
+		school: 'Micheal Okpara University of Agriculture, Umudike',
+		description:
+			'Internet of Things (IoT) based speech-to-text system for the hearing impaired, enabling real-time transcription of spoken language',
+		image: '/STT.jpeg',
+		results: 'Real-time transcription with 90% accuracy',
+		link: 'https://speech-to-text-for-hearing.vercel.app/',
+	},
+	{
+		id: 6,
+		title: 'Servo controlled Robotic Arm DIY Robotic Arm',
+		student: 'Emmanuel Tigo, BSc Computer Engineering',
+		school: 'Micheal Okpara University of Agriculture, Umudike',
+		description:
+			'Custom laser-cutting built robotic arm with precise control and programmable movements for educational and research purposes',
+		image: '/DIYrobot.jpeg',
+		results: 'Achieved 95% precision in movement tasks',
+	},
+	{
+		id: 7,
+		title: 'IOT Based Smart Locker For Effective Parcel Delivery',
+		student: 'David, BSc Computer Engineering',
+		school: 'Micheal Okpara University of Agriculture, Umudike',
+		description:
+			'Internet of Things (IoT) based smart locker system for secure and efficient parcel delivery with real-time tracking and notification',
+		image: '/SMl.jpeg',
+		results: 'Enhanced security with 99% delivery accuracy',
+		link: 'https://iot-smart-locker.vercel.app/',
+	},
+	{
+		id: 8,
+		title: 'Voice Controlled Home Automation System Using Arduino',
+		student: 'PrinceGeorge Ikechukwu, Final Year BSc Computer Engineering',
+		school: 'Micheal Okpara University of Agriculture, Umudike',
+		description:
+			'Voice-controlled home automation system using Arduino for smart home management',
+		image: '/VAHA.jpeg',
+		results: 'Achieved 90% accuracy in voice commands',
+	},
+	{
+		id: 9,
+		title: 'Anti-Sleep Alarm System for Drivers Using Eye-Tracking Technology',
+		student: 'Ogbonnaya IheanyiChukwu, BSc Computer Engineering',
+		school: 'Micheal Okpara University of Agriculture, Umudike',
+		description:
+			'An anti-sleep alarm system for drivers using eye-tracking technology to monitor alertness and prevent accidents',
+		image: '/ASA.jpeg',
+		results: 'Reduced drowsiness-related incidents by 80%',
+	}
 ];
 
 export const CaseStudiesSection = () => {
