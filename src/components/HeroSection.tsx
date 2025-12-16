@@ -79,7 +79,7 @@ export const HeroSection = ({
                 whileHover={{ scale: 1.05 }}
                 className="relative rounded-2xl overflow-hidden shadow-2xl mt-8"
               >
-                <img alt="IoT and Embedded Systems hardware" className="w-full h-64 object-cover" src="https://images.unsplash.com/photo-1621136739750-9d2d7befd1cc" />
+                <img alt="IoT and Embedded Systems hardware" className="w-full h-64 object-cover" src="/em.jpeg" />
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
                   <span className="text-white font-semibold text-sm">IoT & Embedded</span>
                 </div>
