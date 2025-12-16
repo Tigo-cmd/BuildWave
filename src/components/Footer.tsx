@@ -74,7 +74,7 @@ export const Footer = ({ onGetStarted, onTrackProject }: FooterProps) => {
               ].map((service) => (
                 <li key={service}>
                   <a
-                    href="#services"
+                    href="/#services"
                     className="hover:text-purple-400 transition-colors"
                   >
                     {service}
@@ -90,7 +90,7 @@ export const Footer = ({ onGetStarted, onTrackProject }: FooterProps) => {
             <ul className="space-y-2 text-gray-400">
               <li>
                 <a
-                  href="#about-us"
+                  href="/#about-us"
                   className="hover:text-purple-400 transition-colors"
                 >
                   About Us
@@ -98,7 +98,7 @@ export const Footer = ({ onGetStarted, onTrackProject }: FooterProps) => {
               </li>
               <li>
                 <a
-                  href="#how-it-works"
+                  href="/#how-it-works"
                   className="hover:text-purple-400 transition-colors"
                 >
                   How It Works
@@ -106,7 +106,7 @@ export const Footer = ({ onGetStarted, onTrackProject }: FooterProps) => {
               </li>
               <li>
                 <a
-                  href="#testimonials"
+                  href="/#testimonials"
                   className="hover:text-purple-400 transition-colors"
                 >
                   Testimonials
