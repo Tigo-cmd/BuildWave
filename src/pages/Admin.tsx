@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Filter, Download, Eye, Edit } from "lucide-react";
+import { Search, Filter, Download, Eye, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { getProjects } from "@/integrations/firebase/firebaseService";
+import { getProjects, deleteProject } from "@/integrations/firebase/firebaseService";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Project {
   id: string;
@@ -36,6 +45,8 @@ const Admin = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [levelFilter, setLevelFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -113,6 +124,29 @@ const Admin = () => {
   const handleLogout = async () => {
     await signOut();
     navigate("/admin/login");
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    setDeleting(true);
+    try {
+      await deleteProject(projectId);
+      toast({
+        title: "✅ Success",
+        description: "Project deleted successfully",
+      });
+      // Remove from local state
+      setProjects(projects.filter(p => p.id !== projectId));
+    } catch (err: any) {
+      console.error("Delete project error:", err);
+      toast({
+        title: "❌ Error",
+        description: "Failed to delete project: " + err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+      setDeleteConfirm(null);
+    }
   };
 
   if (loading) return <div className="p-4">Loading projects...</div>;
@@ -287,8 +321,13 @@ const Admin = () => {
                               <Eye className="h-4 w-4" />
                             </Link>
                           </Button>
-                          <Button size="sm" variant="ghost">
-                            <Edit className="h-4 w-4" />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => setDeleteConfirm(project.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -299,6 +338,30 @@ const Admin = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Delete Project Dialog */}
+        <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Project</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this project? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteConfirm) {
+                  handleDeleteProject(deleteConfirm);
+                }
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </>
   );

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Upload, Send, CheckCircle, Clock, FileText, User } from "lucide-react";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, Upload, Send, CheckCircle, Clock, FileText, User, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
-import { getProject, updateProject, getUser, createTimeline, getProjectTimeline } from "@/integrations/firebase/firebaseService";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { getProject, updateProject, getUser, createTimeline, getProjectTimeline, deleteProject } from "@/integrations/firebase/firebaseService";
 
 interface Deliverable {
   id: string;
@@ -58,11 +67,14 @@ interface Project {
 
 const AdminProjectDetail = () => {
   const { projectId } = useParams();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   const [project, setProject] = useState<Project | null>(null);
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [status, setStatus] = useState("");
   const [progressValue, setProgressValue] = useState(0);
   const [progressNote, setProgressNote] = useState("");
@@ -154,6 +166,33 @@ const AdminProjectDetail = () => {
     }
   };
 
+  const handleDeleteProject = async () => {
+    if (!projectId) return;
+    
+    setDeleting(true);
+    try {
+      await deleteProject(projectId);
+      toast({
+        title: "✅ Success",
+        description: "Project deleted successfully",
+      });
+      // Redirect to admin dashboard
+      setTimeout(() => {
+        navigate("/admin");
+      }, 500);
+    } catch (err: any) {
+      console.error("Delete project error:", err);
+      toast({
+        title: "❌ Error",
+        description: "Failed to delete project: " + err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch(status) {
       case "Completed": return "bg-green-500/10 text-green-500 border-green-500/20";
@@ -192,6 +231,16 @@ const AdminProjectDetail = () => {
                   <p className="text-sm text-muted-foreground">Project ID: {project.id}</p>
                 </div>
               </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={deleting}
+                className="gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Project
+              </Button>
             </div>
           </div>
         </header>
@@ -382,6 +431,26 @@ const AdminProjectDetail = () => {
             </Card>
           </div>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Project</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this project? This action cannot be undone. The project "{project?.title}" will be permanently deleted from the system.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProject}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </>
   );

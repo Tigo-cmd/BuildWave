@@ -9,16 +9,16 @@ const testimonials = [
     name: "Amaka Okoye",
     school: "University of Lagos",
     course: "Computer Engineering (Final Year)",
-    photo: "Professional headshot of a smiling female Nigerian student",
+    photo: "https://images.unsplash.com/photo-1763256293918-6d40f1439fa3?w=200&h=200&fit=crop",
     rating: 5,
-    review: "BuildWave handled my final year project from proposal to deployment. The team was professional, responsive, and delivered beyond expectations. I graduated with distinction!"
+    review: "BuildWave handled my final year project so Well, from proposal to deployment. The team was professional, responsive, and delivered beyond expectations. I graduated with distinction!"
   },
   {
     id: 2,
     name: "Ibrahim Musa",
     school: "Ahmadu Bello University",
     course: "MSc Data Science",
-    photo: "Professional headshot of a confident male Nigerian graduate student",
+    photo: "https://images.unsplash.com/photo-1723221906960-1c5a5febc9c3?w=200&h=200&fit=crop",
     rating: 5,
     review: "My thesis research was complex, but BuildWave's experts made it manageable. They helped with methodology, analysis, and even got my work published. Highly recommended!"
   },
@@ -27,7 +27,7 @@ const testimonials = [
     name: "Chioma Nwosu",
     school: "Covenant University",
     course: "Electrical Engineering (Final Year)",
-    photo: "Professional headshot of an enthusiastic female engineering student",
+    photo: "https://plus.unsplash.com/premium_photo-1723629670116-244c1830a565?w=200&h=200&fit=crop",
     rating: 5,
     review: "I needed an IoT project and had no idea where to start. BuildWave not only built it but taught me how it works. Amazing experience and great results!"
   },
@@ -36,16 +36,16 @@ const testimonials = [
     name: "Yusuf Adebayo",
     school: "University of Ibadan",
     course: "PhD Computer Science",
-    photo: "Professional headshot of a scholarly male PhD candidate",
+    photo: "https://images.unsplash.com/photo-1667772538186-144083f87515?w=200&h=200&fit=crop",
     rating: 5,
-    review: "The research support I received was exceptional. BuildWave helped me refine my methodology and complete my dissertation ahead of schedule. Worth every naira!"
+    review: "Omo! The research support I received was exceptional. BuildWave helped me refine my methodology and complete my dissertation ahead of schedule. Worth every naira!"
   },
   {
     id: 5,
     name: "Grace Eze",
     school: "Federal University of Technology, Minna",
     course: "Software Engineering (Final Year)",
-    photo: "Professional headshot of a bright female software engineering student",
+    photo: "https://images.unsplash.com/photo-1612833833572-4f2709907bc4?w=200&h=200&fit=crop",
     rating: 5,
     review: "BuildWave delivered my web application project with clean code and excellent documentation. My supervisor was impressed, and I got an A!"
   }
@@ -95,7 +95,14 @@ export const TestimonialsSection = () => {
               >
                 <div className="flex items-center gap-4 mb-4">
                   <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-primary flex items-center justify-center text-white text-2xl font-bold">
-                    <img alt={`${testimonial.name} profile photo`} className="w-full h-full object-cover" src="https://images.unsplash.com/photo-1542981532-0eb1c784c9a9" />
+                    <img 
+                      alt={`${testimonial.name} profile photo`} 
+                      className="w-full h-full object-cover" 
+                      src={testimonial.photo}
+                      onError={(e) => {
+                        e.currentTarget.src = "https://images.unsplash.com/photo-1542981532-0eb1c784c9a9";
+                      }}
+                    />
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-900">{testimonial.name}</h3>

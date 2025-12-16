@@ -8,22 +8,53 @@ import { CaseStudiesSection } from "@/components/CaseStudiesSection";
 import { AuthModal } from "@/components/AuthModal";
 import { TrackProjectModal } from "@/components/TrackProjectModal";
 import { ProjectRequestModal } from "@/components/ProjectRequestModal";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
+import { useToast } from "@/components/ui/use-toast";
 
 const Index = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [trackModalOpen, setTrackModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<string>("");
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // Check if user is logged in
+  useEffect(() => {
+    const checkUserLogin = () => {
+      const buildwaveUid = localStorage.getItem("buildwave_uid");
+      const buildwaveUser = localStorage.getItem("buildwave_user");
+      setIsUserLoggedIn(!!(buildwaveUid && buildwaveUser));
+    };
+
+    checkUserLogin();
+
+    // Listen for storage changes (when user logs in/out in another tab)
+    window.addEventListener("storage", checkUserLogin);
+    return () => window.removeEventListener("storage", checkUserLogin);
+  }, []);
 
   const handleBrowseTopics = () => {
     navigate("/topics");
   };
 
   const handleRequestService = (serviceId: string) => {
+    // Check if user is logged in
+    if (!isUserLoggedIn) {
+      toast({
+        title: "❌ Login Required",
+        description: "Please log in first to request a project.",
+        variant: "destructive",
+      });
+      // Open auth modal for user to login
+      setAuthModalOpen(true);
+      return;
+    }
+
+    // User is logged in, open project modal
     setSelectedService(serviceId);
     setProjectModalOpen(true);
   };
@@ -59,7 +90,10 @@ const Index = () => {
       </Helmet>
 
       <div className="min-h-screen flex flex-col">
-        <Header onTrackProject={() => setTrackModalOpen(true)} />
+        <Header 
+          onTrackProject={() => setTrackModalOpen(true)} 
+          onGetStarted={() => setAuthModalOpen(true)}
+        />
         
         <main className="flex-1">
           <HeroSection 
