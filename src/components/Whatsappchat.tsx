@@ -1,5 +1,6 @@
 // Lightweight local WhatsApp SVG icon to avoid depending on react-icons
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 const WhatsappIcon = ({ size = 24 }: { size?: number }) => (
   <svg
@@ -33,6 +34,7 @@ export default function WhatsappChat() {
         message = `Hi BuildWave, I'm ${user.name || "a student"} (${user.email || "no email"}) and I need help with a project.`;
       } catch (e) {
         // If parsing fails, use default message
+        toast.error("Error retrieving user info for WhatsApp message.");
       }
     }
 
