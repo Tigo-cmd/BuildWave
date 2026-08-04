@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save, Plus, Trash2, Layout, Layers, Star, HelpCircle } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Layout, Layers, Star, HelpCircle, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 import {
   getCMSSection,
@@ -65,6 +65,13 @@ const AdminContent = () => {
       toast.error(`Failed to update ${section}: ${err.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDefaultsIntoForm = () => {
+    if (window.confirm("Load the hardcoded actual site contents into the form? This will overwrite the form data on your screen. You will still need to click 'Save' on each tab to update the database.")) {
+      setCmsData(defaultCMSData);
+      toast.success("Loaded existing site contents into form! Please review and click Save on the sections you wish to publish.");
     }
   };
 
@@ -140,6 +147,13 @@ const AdminContent = () => {
                 Edit and publish dynamic content for all landing page sections in real-time.
               </p>
             </div>
+            <Button
+              variant="outline"
+              onClick={loadDefaultsIntoForm}
+              className="mt-4 md:mt-0 flex items-center gap-2 border-purple-200 text-purple-700 hover:bg-purple-50"
+            >
+              <RefreshCcw className="w-4 h-4" /> Load Live Site Contents
+            </Button>
           </div>
 
           <Tabs defaultValue="hero" className="w-full space-y-6">

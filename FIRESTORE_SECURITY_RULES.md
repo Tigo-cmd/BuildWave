@@ -106,6 +106,14 @@ service cloud.firestore {
       // Users can update/delete their own, admins can update any
       allow update, delete: if isAuth() && (isOwner(resource.data.user_id) || isAdmin());
     }
+    
+    // CMS Content collection
+    match /cms_content/{document=**} {
+      // Anyone can read CMS content
+      allow read: if true;
+      // Only admin can write to CMS content
+      allow write: if isAdmin();
+    }
   }
 }
 ```
