@@ -54,7 +54,6 @@ const Admin = () => {
         setLoading(true);
         // Fetch all projects at once
         const allProjects = await getProjects();
-        console.log("Fetched projects:", allProjects);
 
         // Map Firebase response to Project interface
         const projectsData: Project[] = allProjects.map((p: any) => ({
@@ -78,7 +77,6 @@ const Admin = () => {
             : "N/A",
         }));
 
-        console.log("Mapped projects:", projectsData);
         setProjects(projectsData);
       } catch (err: any) {
         console.error("Fetch projects error:", err);

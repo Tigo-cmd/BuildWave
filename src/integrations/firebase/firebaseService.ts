@@ -845,9 +845,6 @@ export const migrateProjectsToNewSchema = async () => {
     });
 
     await batch.commit();
-    console.log(
-      `Migration complete: ${migratedCount} projects migrated, ${errorCount} errors`
-    );
 
     return {
       migratedCount,
