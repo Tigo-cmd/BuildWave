@@ -250,40 +250,74 @@ const AdminProjectDetail = () => {
           <div className="lg:col-span-2 space-y-6">
             {/* Project Details */}
             <Card>
-              <CardHeader>
-                <CardTitle>Project Details</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Project Details & Budget</CardTitle>
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    if (!project) return;
+                    try {
+                      await updateProject(project.id, {
+                        title: project.title,
+                        description: project.description,
+                        discipline: project.discipline,
+                        budget_estimate: Number(project.budget_estimate || 0),
+                        deadline: project.deadline,
+                      });
+                      toast({ title: "Saved!", description: "Project details updated successfully." });
+                    } catch (err: any) {
+                      toast({ title: "Error", description: err.message, variant: "destructive" });
+                    }
+                  }}
+                  className="btn-hero"
+                >
+                  Save Details
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Label className="text-muted-foreground">Description</Label>
-                  <p className="mt-1">{project.description || "No description"}</p>
+                <div className="space-y-2">
+                  <Label>Project Title</Label>
+                  <Input
+                    value={project.title}
+                    onChange={(e) => setProject({ ...project, title: e.target.value })}
+                  />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Discipline</Label>
-                    <p className="mt-1 font-medium">{project.discipline || "N/A"}</p>
+
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Textarea
+                    rows={3}
+                    value={project.description || ""}
+                    onChange={(e) => setProject({ ...project, description: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Discipline</Label>
+                    <Input
+                      value={project.discipline || ""}
+                      onChange={(e) => setProject({ ...project, discipline: e.target.value })}
+                    />
                   </div>
-                  <div>
-                    <Label className="text-muted-foreground">Budget</Label>
-                    <p className="mt-1 font-medium">₦{project.budget_estimate?.toLocaleString() || "0"}</p>
+
+                  <div className="space-y-2">
+                    <Label>Budget Estimate (₦)</Label>
+                    <Input
+                      type="number"
+                      value={project.budget_estimate || 0}
+                      onChange={(e) => setProject({ ...project, budget_estimate: Number(e.target.value) })}
+                    />
                   </div>
-                  <div>
-                    <Label className="text-muted-foreground">Created</Label>
-                    <p className="mt-1 font-medium">
-                      {(project.createdAt as any)?.seconds
-                        ? new Date((project.createdAt as any).seconds * 1000).toLocaleDateString()
-                        : "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Deadline</Label>
-                    <p className="mt-1 font-medium text-amber-500">
-                      {typeof project.deadline === 'string' && project.deadline
-                        ? project.deadline
-                        : (project.deadline as any)?.seconds
-                        ? new Date((project.deadline as any).seconds * 1000).toLocaleDateString()
-                        : "N/A"}
-                    </p>
+
+                  <div className="space-y-2">
+                    <Label>Deadline Date</Label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. 2026-09-30"
+                      value={project.deadline || ""}
+                      onChange={(e) => setProject({ ...project, deadline: e.target.value })}
+                    />
                   </div>
                 </div>
               </CardContent>

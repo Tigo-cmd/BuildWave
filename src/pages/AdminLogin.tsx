@@ -7,8 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/integrations/firebase/config";
+import { useAuth } from "@/hooks/useAuth";
 import { getUserRole } from "@/integrations/firebase/firebaseService";
 
 import { useRateLimit } from "@/hooks/useRateLimit";
@@ -16,13 +15,14 @@ import { sanitizeInput, validateEmail } from "@/lib/security";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
+  const { signIn, signInWithGoogle, user: authUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const { allowed, retryAfterSec, attemptAction, resetLimit } = useRateLimit({
     actionKey: "admin_login_attempt",
-    maxAttempts: 3,
+    maxAttempts: 5,
     windowMs: 900000, // 15 minutes
   });
 
@@ -49,42 +49,26 @@ const AdminLogin = () => {
     setLoading(true);
 
     try {
-      // Sign in with Firebase Auth
-      const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
-      const userId = userCredential.user.uid;
-
-      // Check if user has admin role
-      const userRole = await getUserRole(userId);
-      
-      if ((userRole as any)?.role === "admin") {
-        resetLimit();
-        // Store user data in both formats for compatibility
-        const adminUser = {
-          id: userId,
-          email: userCredential.user.email,
-          role: "admin",
-          name: userCredential.user.displayName || "Admin"
-        };
-        
-        localStorage.setItem("buildwave_uid", userId);
-        localStorage.setItem("buildwave_user", JSON.stringify(adminUser));
-        localStorage.setItem("user", JSON.stringify(adminUser)); // For useAuth hook compatibility
-        
-        toast.success("Admin login successful");
-        navigate("/admin");
-      } else {
-        console.error("Not an admin. Role:", (userRole as any)?.role);
-        toast.error("Access denied. Admin privileges required.");
-      }
+      await signIn(cleanEmail, password);
+      resetLimit();
+      toast.success("Admin login successful");
+      navigate("/admin");
     } catch (err: any) {
       console.error("Login error", err);
-      const errorMsg = err.code === "auth/user-not-found" 
-        ? "Invalid email or password"
-        : err.code === "auth/wrong-password"
-        ? "Invalid email or password"
-        : err.message || "Login failed";
-      
-      toast.error(errorMsg);
+      toast.error(err.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      await signInWithGoogle();
+      toast.success("Admin login successful");
+      navigate("/admin");
+    } catch (err: any) {
+      console.error("Google Admin Login error", err);
     } finally {
       setLoading(false);
     }
@@ -110,7 +94,46 @@ const AdminLogin = () => {
             </CardDescription>
           </CardHeader>
 
-          <CardContent>
+          <CardContent className="space-y-4">
+            <Button
+              variant="outline"
+              type="button"
+              className="w-full flex items-center justify-center gap-2 py-5"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                />
+              </svg>
+              Sign in with Google
+            </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or admin email sign in
+                </span>
+              </div>
+            </div>
+
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
@@ -166,3 +189,4 @@ const AdminLogin = () => {
 };
 
 export default AdminLogin;
+

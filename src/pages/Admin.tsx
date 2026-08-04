@@ -168,6 +168,9 @@ const Admin = () => {
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" asChild>
+                  <Link to="/admin/content">Site Content (CMS)</Link>
+                </Button>
+                <Button variant="outline" asChild>
                   <Link to="/admin/testimonials">Testimonials</Link>
                 </Button>
                 <Button variant="outline" asChild>
