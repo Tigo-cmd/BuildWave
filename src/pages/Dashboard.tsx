@@ -22,6 +22,8 @@ import { Plus, FileText, Clock, LogOut, Loader2 } from "lucide-react";
 import { useFirebaseAuth } from "@/integrations/firebase/useFirebaseAuth";
 import { getUserProjects, getUser } from "@/integrations/firebase/firebaseService";
 
+import { useInactivityTimer } from "@/hooks/useInactivityTimer";
+
 interface Project {
   id: string;
   title: string;
@@ -49,6 +51,15 @@ const Dashboard = () => {
 
   const [trackModalOpen, setTrackModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
+
+  // Automatic session timeout after 30 minutes of inactivity
+  useInactivityTimer({
+    timeoutMs: 1800000, // 30 minutes
+    enabled: Boolean(authUser),
+    onTimeout: () => {
+      handleLogout();
+    },
+  });
 
   // Check authentication
   useEffect(() => {

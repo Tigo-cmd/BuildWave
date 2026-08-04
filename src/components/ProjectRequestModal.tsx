@@ -19,6 +19,9 @@ import { createProject } from "@/integrations/firebase/firebaseService";
 import { storage } from "@/integrations/firebase/config";
 import { ref, uploadBytes } from "firebase/storage";
 
+import { useRateLimit } from "@/hooks/useRateLimit";
+import { sanitizeInput } from "@/lib/security";
+
 interface ProjectRequestModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -40,6 +43,12 @@ export const ProjectRequestModal = ({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
+  const { allowed, retryAfterSec, attemptAction, resetLimit } = useRateLimit({
+    actionKey: "project_request_submission",
+    maxAttempts: 3,
+    windowMs: 600000, // 10 minutes
+  });
+
   // Get user ID from Firebase or localStorage
   useEffect(() => {
     if (firebaseUser?.uid) {
@@ -55,6 +64,26 @@ export const ProjectRequestModal = ({
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (!allowed) {
+      toast({
+        title: "❌ Limit Reached",
+        description: `Too many submissions. Please wait ${retryAfterSec}s before submitting again.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const submissionAttempt = attemptAction();
+    if (!submissionAttempt.allowed) {
+      toast({
+        title: "❌ Limit Reached",
+        description: `Submission blocked. Try again in ${submissionAttempt.retryAfterSec}s.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -70,19 +99,19 @@ export const ProjectRequestModal = ({
 
       const form = e.target as HTMLFormElement;
 
-      // Gather form values
-      const title = (form.elements.namedItem("title") as HTMLInputElement).value;
-      const level = (form.elements.namedItem("level") as HTMLSelectElement).value;
-      const discipline = (form.elements.namedItem("discipline") as HTMLInputElement).value;
-      const description = (form.elements.namedItem("description") as HTMLTextAreaElement).value;
-      const phone = (form.elements.namedItem("phone") as HTMLInputElement).value;
-      const deadline = (form.elements.namedItem("deadline") as HTMLInputElement).value;
-      const budget = (form.elements.namedItem("budget") as HTMLInputElement).value;
+      // Gather and sanitize form values
+      const title = sanitizeInput((form.elements.namedItem("title") as HTMLInputElement).value);
+      const level = sanitizeInput((form.elements.namedItem("level") as HTMLSelectElement).value);
+      const discipline = sanitizeInput((form.elements.namedItem("discipline") as HTMLInputElement).value);
+      const description = sanitizeInput((form.elements.namedItem("description") as HTMLTextAreaElement).value);
+      const phone = sanitizeInput((form.elements.namedItem("phone") as HTMLInputElement).value);
+      const deadline = sanitizeInput((form.elements.namedItem("deadline") as HTMLInputElement).value);
+      const budget = sanitizeInput((form.elements.namedItem("budget") as HTMLInputElement).value);
       const fileInput = form.elements.namedItem("file") as HTMLInputElement;
 
       // Create project in Firestore
       const projectId = await createProject({
-        userId: userId,  // Use the current logged-in user ID
+        userId: userId,
         title: title || "Untitled Project",
         category: discipline,
         description,

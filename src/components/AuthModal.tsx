@@ -15,7 +15,8 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { useFirebaseAuth } from "@/integrations/firebase/useFirebaseAuth";
 import { createUser } from "@/integrations/firebase/firebaseService";
-import { auth } from "@/integrations/firebase/config";
+import { useRateLimit } from "@/hooks/useRateLimit";
+import { sanitizeInput, validateEmail, validatePassword } from "@/lib/security";
 
 export const AuthModal = ({ open, onOpenChange }) => {
   const navigate = useNavigate();
@@ -31,12 +32,45 @@ export const AuthModal = ({ open, onOpenChange }) => {
   const [loading, setLoading] = useState(false);
   const [passwordError, setPasswordError] = useState("");
 
+  const { allowed: loginAllowed, retryAfterSec: loginRetryAfter, attemptAction: attemptLogin, resetLimit: resetLoginLimit } = useRateLimit({
+    actionKey: "user_login_attempt",
+    maxAttempts: 5,
+    windowMs: 300000, // 5 minutes
+  });
+
+  const { allowed: registerAllowed, retryAfterSec: registerRetryAfter, attemptAction: attemptRegister, resetLimit: resetRegisterLimit } = useRateLimit({
+    actionKey: "user_register_attempt",
+    maxAttempts: 3,
+    windowMs: 600000, // 10 minutes
+  });
+
   // STEP 1 — handle signup input validation and move to onboarding
   const handleEmailSignUp = async () => {
-    if (!email || !fullName || !password || !confirmPassword) {
+    if (!registerAllowed) {
+      toast({
+        title: "Rate limit reached",
+        description: `Too many sign-up attempts. Please wait ${registerRetryAfter}s.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const cleanEmail = sanitizeInput(email);
+    const cleanName = sanitizeInput(fullName);
+
+    if (!cleanEmail || !cleanName || !password || !confirmPassword) {
       toast({
         title: "Missing fields",
         description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!validateEmail(cleanEmail)) {
+      toast({
+        title: "Invalid email",
+        description: "Please provide a valid email address.",
         variant: "destructive",
       });
       return;
@@ -47,8 +81,9 @@ export const AuthModal = ({ open, onOpenChange }) => {
       return;
     }
 
-    if (password.length < 6) {
-      setPasswordError("Password must be at least 6 characters");
+    const passValidation = validatePassword(password);
+    if (!passValidation.isValid) {
+      setPasswordError(passValidation.feedback[0] || "Password does not meet security requirements");
       return;
     }
 
@@ -59,27 +94,42 @@ export const AuthModal = ({ open, onOpenChange }) => {
   // STEP 2 — complete onboarding (create user in Firebase)
   const handleOnboardingSubmit = async (e) => {
     e.preventDefault();
+
+    const regAttempt = attemptRegister();
+    if (!regAttempt.allowed) {
+      toast({
+        title: "Registration limit exceeded",
+        description: `Please wait ${regAttempt.retryAfterSec}s before attempting again.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
       const formData = new FormData(e.target);
+      const cleanEmail = sanitizeInput(email);
+      const cleanName = sanitizeInput(fullName);
 
       // Register user with Firebase Auth
-      const registeredUser = await register(email, password);
+      const registeredUser = await register(cleanEmail, password);
 
       if (!registeredUser || !registeredUser.uid) {
         throw new Error("Failed to create user account");
       }
 
+      resetRegisterLimit();
+
       // Create user profile in Firestore
       const userData = {
-        name: fullName,
-        email: email,
-        school: formData.get("school") || "",
-        course: formData.get("course") || "",
-        level: formData.get("level") || "Undergraduate",
-        phone: formData.get("phone") || "",
-        location: formData.get("location") || "",
+        name: cleanName,
+        email: cleanEmail,
+        school: sanitizeInput(String(formData.get("school") || "")),
+        course: sanitizeInput(String(formData.get("course") || "")),
+        level: sanitizeInput(String(formData.get("level") || "Undergraduate")),
+        phone: sanitizeInput(String(formData.get("phone") || "")),
+        location: sanitizeInput(String(formData.get("location") || "")),
         hasProject: hasProject,
         projectsCount: 0,
         completedProjects: 0,
@@ -132,19 +182,51 @@ export const AuthModal = ({ open, onOpenChange }) => {
   // STEP 3 — sign in existing users
   const handleSignIn = async (e) => {
     e.preventDefault();
+
+    if (!loginAllowed) {
+      toast({
+        title: "Rate limit reached",
+        description: `Too many sign-in attempts. Please try again in ${loginRetryAfter}s.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const cleanEmail = sanitizeInput(email);
+    if (!validateEmail(cleanEmail)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const loginAttempt = attemptLogin();
+    if (!loginAttempt.allowed) {
+      toast({
+        title: "Account Locked Temporarily",
+        description: `Too many failed attempts. Try again in ${loginAttempt.retryAfterSec}s.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
       // Sign in with Firebase Auth
-      const loggedInUser = await login(email, password);
+      const loggedInUser = await login(cleanEmail, password);
 
       if (!loggedInUser || !loggedInUser.uid) {
         throw new Error("Sign in failed");
       }
 
+      resetLoginLimit();
+
       // Save to localStorage
       localStorage.setItem("buildwave_uid", loggedInUser.uid);
-      localStorage.setItem("buildwave_email", loggedInUser.email || email);
+      localStorage.setItem("buildwave_email", loggedInUser.email || cleanEmail);
 
       toast({
         title: "Welcome back!",

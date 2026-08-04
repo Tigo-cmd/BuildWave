@@ -11,28 +11,53 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/integrations/firebase/config";
 import { getUserRole } from "@/integrations/firebase/firebaseService";
 
+import { useRateLimit } from "@/hooks/useRateLimit";
+import { sanitizeInput, validateEmail } from "@/lib/security";
+
 const AdminLogin = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const { allowed, retryAfterSec, attemptAction, resetLimit } = useRateLimit({
+    actionKey: "admin_login_attempt",
+    maxAttempts: 3,
+    windowMs: 900000, // 15 minutes
+  });
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!allowed) {
+      toast.error(`Too many failed attempts. Please try again in ${retryAfterSec}s.`);
+      return;
+    }
+
+    const cleanEmail = sanitizeInput(email);
+    if (!validateEmail(cleanEmail)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    const attempt = attemptAction();
+    if (!attempt.allowed) {
+      toast.error(`Too many attempts. Locked out for ${attempt.retryAfterSec} seconds.`);
+      return;
+    }
+
     setLoading(true);
 
     try {
       // Sign in with Firebase Auth
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
       const userId = userCredential.user.uid;
 
       // Check if user has admin role
       const userRole = await getUserRole(userId);
-      console.log("User ID:", userId);
-      console.log("User Role Data:", userRole);
-      console.log("User Role Value:", (userRole as any)?.role);
       
       if ((userRole as any)?.role === "admin") {
+        resetLimit();
         // Store user data in both formats for compatibility
         const adminUser = {
           id: userId,
@@ -47,7 +72,6 @@ const AdminLogin = () => {
         
         toast.success("Admin login successful");
         navigate("/admin");
-        // console.log("Admin login successful for user ID:", userId);
       } else {
         console.error("Not an admin. Role:", (userRole as any)?.role);
         toast.error("Access denied. Admin privileges required.");
