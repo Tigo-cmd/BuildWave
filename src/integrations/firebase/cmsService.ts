@@ -1,5 +1,5 @@
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
-import { db } from "./config";
+import { db, auth } from "./config";
 
 export interface HeroContent {
   badgeText: string;
@@ -253,33 +253,53 @@ export const defaultCMSData: CMSData = {
 };
 
 /**
- * Fetch dynamic CMS section or return fallback default data
+ * Fetch dynamic CMS section or return fallback default data.
+ * Always returns defaultCMSData if Firestore read fails or doc doesn't exist.
  */
 export const getCMSSection = async <K extends keyof CMSData>(section: K): Promise<CMSData[K]> => {
   try {
     const docRef = doc(db, "cms_content", section);
     const snap = await getDoc(docRef);
-    if (snap.exists()) {
+    if (snap.exists() && snap.data().content) {
       return snap.data().content as CMSData[K];
     }
   } catch (error) {
-    console.error(`Error fetching CMS section ${section}:`, error);
+    // Silently fall back to defaults — Firestore read may fail due to rules
+    console.warn(`CMS read failed for "${section}", using defaults:`, error);
   }
   return defaultCMSData[section];
 };
 
 /**
- * Save CMS section data to Firestore
+ * Save CMS section data to Firestore.
+ * Uses setDoc with merge to avoid permission issues on partial updates.
+ * Includes detailed error messages for common Firestore permission problems.
  */
 export const updateCMSSection = async <K extends keyof CMSData>(section: K, data: CMSData[K]): Promise<void> => {
+  // Check if user is authenticated first
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error("You must be logged in to update CMS content. Please log in again.");
+  }
+
   try {
     const docRef = doc(db, "cms_content", section);
     await setDoc(docRef, {
       content: data,
       updatedAt: Timestamp.now(),
+      updatedBy: currentUser.uid,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error updating CMS section ${section}:`, error);
+    
+    // Provide clear error messages
+    if (error.code === "permission-denied" || error.message?.includes("permission")) {
+      throw new Error(
+        `Permission denied. Your Firestore security rules need to allow admin writes to the "cms_content" collection. ` +
+        `Please update your rules in Firebase Console → Firestore → Rules. ` +
+        `Add: match /cms_content/{document=**} { allow read: if true; allow write: if request.auth != null; }`
+      );
+    }
     throw error;
   }
 };

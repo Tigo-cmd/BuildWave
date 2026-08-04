@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save, Plus, Trash2, Layout, Layers, Star, HelpCircle, RefreshCcw } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Layout, Layers, Star, HelpCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getCMSSection,
@@ -22,7 +22,8 @@ import {
 
 const AdminContent = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [cmsData, setCmsData] = useState<CMSData>(defaultCMSData);
 
   useEffect(() => {
@@ -32,6 +33,7 @@ const AdminContent = () => {
   const loadAllCMSContent = async () => {
     setLoading(true);
     try {
+      // Each getCMSSection individually catches errors and falls back to defaults
       const [hero, services, caseStudies, howItWorks, reviewsHeading] = await Promise.all([
         getCMSSection("hero"),
         getCMSSection("services"),
@@ -49,7 +51,8 @@ const AdminContent = () => {
       });
     } catch (err) {
       console.error("Error loading CMS content:", err);
-      toast.error("Failed to load CMS content");
+      // Even on complete failure, form stays populated with defaultCMSData
+      // because that's the initial state
     } finally {
       setLoading(false);
     }
@@ -57,21 +60,15 @@ const AdminContent = () => {
 
   const handleSaveSection = async <K extends keyof CMSData>(section: K, data: CMSData[K]) => {
     try {
-      setLoading(true);
+      setSaving(true);
       await updateCMSSection(section, data);
       setCmsData((prev) => ({ ...prev, [section]: data }));
-      toast.success(`${section.toUpperCase()} content updated successfully!`);
+      toast.success(`${section} content updated successfully!`);
     } catch (err: any) {
-      toast.error(`Failed to update ${section}: ${err.message}`);
+      console.error(`Save error for ${section}:`, err);
+      toast.error(err.message || `Failed to update ${section}`);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadDefaultsIntoForm = () => {
-    if (window.confirm("Load the hardcoded actual site contents into the form? This will overwrite the form data on your screen. You will still need to click 'Save' on each tab to update the database.")) {
-      setCmsData(defaultCMSData);
-      toast.success("Loaded existing site contents into form! Please review and click Save on the sections you wish to publish.");
+      setSaving(false);
     }
   };
 
@@ -124,6 +121,32 @@ const AdminContent = () => {
     setCmsData((prev) => ({ ...prev, caseStudies: newCS }));
   };
 
+  // Helpers for How It Works
+  const addHowItWorksStep = () => {
+    const newStep: HowItWorksStep = {
+      step: `0${cmsData.howItWorks.length + 1}`,
+      title: "New Step",
+      description: "Step description...",
+    };
+    setCmsData((prev) => ({ ...prev, howItWorks: [...prev.howItWorks, newStep] }));
+  };
+
+  const deleteHowItWorksStep = (index: number) => {
+    const newSteps = cmsData.howItWorks.filter((_, i) => i !== index);
+    setCmsData((prev) => ({ ...prev, howItWorks: newSteps }));
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+          <p className="text-muted-foreground">Loading CMS content...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <Helmet>
@@ -147,13 +170,6 @@ const AdminContent = () => {
                 Edit and publish dynamic content for all landing page sections in real-time.
               </p>
             </div>
-            <Button
-              variant="outline"
-              onClick={loadDefaultsIntoForm}
-              className="mt-4 md:mt-0 flex items-center gap-2 border-purple-200 text-purple-700 hover:bg-purple-50"
-            >
-              <RefreshCcw className="w-4 h-4" /> Load Live Site Contents
-            </Button>
           </div>
 
           <Tabs defaultValue="hero" className="w-full space-y-6">
@@ -352,10 +368,11 @@ const AdminContent = () => {
 
                   <Button
                     onClick={() => handleSaveSection("hero", cmsData.hero)}
-                    disabled={loading}
+                    disabled={saving}
                     className="btn-hero"
                   >
-                    <Save className="w-4 h-4 mr-2" /> Save Hero Section
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Save Hero Section
                   </Button>
                 </CardContent>
               </Card>
@@ -432,10 +449,11 @@ const AdminContent = () => {
 
                   <Button
                     onClick={() => handleSaveSection("services", cmsData.services)}
-                    disabled={loading}
+                    disabled={saving}
                     className="btn-hero"
                   >
-                    <Save className="w-4 h-4 mr-2" /> Save Services Section
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Save Services Section
                   </Button>
                 </CardContent>
               </Card>
@@ -534,10 +552,11 @@ const AdminContent = () => {
 
                   <Button
                     onClick={() => handleSaveSection("caseStudies", cmsData.caseStudies)}
-                    disabled={loading}
+                    disabled={saving}
                     className="btn-hero"
                   >
-                    <Save className="w-4 h-4 mr-2" /> Save Case Studies
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Save Case Studies
                   </Button>
                 </CardContent>
               </Card>
@@ -546,13 +565,29 @@ const AdminContent = () => {
             {/* TAB: HOW IT WORKS */}
             <TabsContent value="howItWorks">
               <Card>
-                <CardHeader>
-                  <CardTitle>How It Works Steps</CardTitle>
-                  <CardDescription>Update the step-by-step process for students.</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>How It Works Steps</CardTitle>
+                    <CardDescription>Update the step-by-step process for students.</CardDescription>
+                  </div>
+                  <Button onClick={addHowItWorksStep} variant="outline" size="sm">
+                    <Plus className="w-4 h-4 mr-1" /> Add Step
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {cmsData.howItWorks.map((step, index) => (
                     <div key={index} className="p-4 border rounded-xl space-y-3 bg-white dark:bg-gray-800">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-sm text-primary">Step #{index + 1}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteHowItWorksStep(index)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="space-y-2">
                           <Label>Step No.</Label>
@@ -560,7 +595,7 @@ const AdminContent = () => {
                             value={step.step}
                             onChange={(e) => {
                               const newSteps = [...cmsData.howItWorks];
-                              newSteps[index].step = e.target.value;
+                              newSteps[index] = { ...newSteps[index], step: e.target.value };
                               setCmsData({ ...cmsData, howItWorks: newSteps });
                             }}
                           />
@@ -571,7 +606,7 @@ const AdminContent = () => {
                             value={step.title}
                             onChange={(e) => {
                               const newSteps = [...cmsData.howItWorks];
-                              newSteps[index].title = e.target.value;
+                              newSteps[index] = { ...newSteps[index], title: e.target.value };
                               setCmsData({ ...cmsData, howItWorks: newSteps });
                             }}
                           />
@@ -584,7 +619,7 @@ const AdminContent = () => {
                           value={step.description}
                           onChange={(e) => {
                             const newSteps = [...cmsData.howItWorks];
-                            newSteps[index].description = e.target.value;
+                            newSteps[index] = { ...newSteps[index], description: e.target.value };
                             setCmsData({ ...cmsData, howItWorks: newSteps });
                           }}
                         />
@@ -594,10 +629,11 @@ const AdminContent = () => {
 
                   <Button
                     onClick={() => handleSaveSection("howItWorks", cmsData.howItWorks)}
-                    disabled={loading}
+                    disabled={saving}
                     className="btn-hero"
                   >
-                    <Save className="w-4 h-4 mr-2" /> Save How It Works
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Save How It Works
                   </Button>
                 </CardContent>
               </Card>
@@ -653,10 +689,11 @@ const AdminContent = () => {
 
                   <Button
                     onClick={() => handleSaveSection("reviewsHeading", cmsData.reviewsHeading)}
-                    disabled={loading}
+                    disabled={saving}
                     className="btn-hero"
                   >
-                    <Save className="w-4 h-4 mr-2" /> Save Reviews Heading
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Save Reviews Heading
                   </Button>
                 </CardContent>
               </Card>
