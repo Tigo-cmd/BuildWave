@@ -15,7 +15,9 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Sparkles, Loader2, Calendar } from "lucide-react";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { updateProject } from "@/integrations/firebase/firebaseService";
+import { storage } from "@/integrations/firebase/config";
+import { useFirebaseAuth } from "@/integrations/firebase/useFirebaseAuth";
+import { createProject, updateProject } from "@/integrations/firebase/firebaseService";
 import { sendProjectCreatedEmail } from "@/lib/emailService";
 
 import { useRateLimit } from "@/hooks/useRateLimit";
