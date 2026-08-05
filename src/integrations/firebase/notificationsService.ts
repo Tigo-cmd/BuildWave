@@ -46,11 +46,15 @@ export const getUserNotifications = async (userId: string) => {
   try {
     const q = query(
       collection(db, "notifications"),
-      where("user_id", "==", userId),
-      orderBy("createdAt", "desc")
+      where("user_id", "==", userId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as AppNotification));
+    const notifs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as AppNotification));
+    return notifs.sort((a, b) => {
+      const timeA = a.createdAt?.seconds ? a.createdAt.seconds : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const timeB = b.createdAt?.seconds ? b.createdAt.seconds : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      return timeB - timeA;
+    });
   } catch (error) {
     console.error("Error fetching user notifications:", error);
     return [];

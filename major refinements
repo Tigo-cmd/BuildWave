@@ -1,0 +1,20 @@
+1) on the project track dashboard, add a button to take uses back to their dashboard where all courses are displayed
+as well as home page button
+2) Users should be able to send messages to the tutor or admin on the project track dashboard the request progress should open a field to input messages and attach files if needed then the admin sees it from their end normall on projects details
+3) the request progress leads to the send messages to admin
+4) when the admin responds to the user on the project track dashboard the user should be able to see the response on the project track dashboard and also get a notification
+5) using resend, confirmation emails for newly registered users, project approval confirmation emails, project creation notification emails with tracking ID and all neccasy information  well designed and professional emails 
+6) admin panel should be able to addd projects from admin panel for specific users and topic ans assign it to them after creating the project 
+7) admin will also be able to addd deleverables, files, pictures, and instructions on the project track for the user to see on the project track dashboard and the user can also upload files on the project track dashboard for the admin to see
+8) on the proect management dashbpard student and Assigned to Columns should be shown and admin and also assign 
+9) the export button should work and export projects in pdf
+
+100 testimonials users can on their dashboard upload testimonials with name, location, picture, and message and admin approves it or not on the testimonials page on the admin 
+11) imlementt session management properly, also admin login should work and redirect to admin dashboard on one click not twice
+12) on the admin panel case study page  should be a place to add  links for the view projectand pictures just as it appears on the landing page
+
+loading screeen shuld be animated as well not just show loading text globally and remove footer from users dashboard as well as admin dashboard 
+AI features
+1) when a user is in project request at the brief description fiels there should be generate with AI based on the topiv the user put in, the upload document shold work and be visibl on the admin side
+2)  
+note if some of this feature exists leave as it is and continue with the other features

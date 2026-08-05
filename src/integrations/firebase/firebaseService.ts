@@ -243,11 +243,15 @@ export const getUserProjects = async (userId: string) => {
   try {
     const q = query(
       collection(db, "projects"),
-      where("user_id", "==", userId),
-      orderBy("createdAt", "desc")
+      where("user_id", "==", userId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const projects = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    return projects.sort((a: any, b: any) => {
+      const timeA = a.createdAt?.seconds ? a.createdAt.seconds : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const timeB = b.createdAt?.seconds ? b.createdAt.seconds : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      return timeB - timeA;
+    });
   } catch (error) {
     console.error("Error getting user projects:", error);
     throw error;
