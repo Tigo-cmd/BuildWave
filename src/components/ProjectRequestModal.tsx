@@ -18,7 +18,30 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { updateProject } from "@/integrations/firebase/firebaseService";
 import { sendProjectCreatedEmail } from "@/lib/emailService";
 
-// Inside component:
+import { useRateLimit } from "@/hooks/useRateLimit";
+import { sanitizeInput } from "@/lib/security";
+
+interface ProjectRequestModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  prefilledService?: string;
+}
+
+export const ProjectRequestModal = ({
+  open,
+  onOpenChange,
+  prefilledService,
+}: ProjectRequestModalProps) => {
+  const { user: firebaseUser } = useFirebaseAuth();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [needTopic, setNeedTopic] = useState(false);
+  const [haveProject, setHaveProject] = useState(false);
+  const [contactMethod, setContactMethod] = useState<"email" | "whatsapp">(
+    "email"
+  );
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+
   const [description, setDescription] = useState("");
   const [titleInput, setTitleInput] = useState(prefilledService || "");
   const [disciplineInput, setDisciplineInput] = useState("");
@@ -48,30 +71,6 @@ import { sendProjectCreatedEmail } from "@/lib/emailService";
       });
     }, 800);
   };
-
-import { useRateLimit } from "@/hooks/useRateLimit";
-import { sanitizeInput } from "@/lib/security";
-
-interface ProjectRequestModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  prefilledService?: string;
-}
-
-export const ProjectRequestModal = ({
-  open,
-  onOpenChange,
-  prefilledService,
-}: ProjectRequestModalProps) => {
-  const { user: firebaseUser } = useFirebaseAuth();
-  const [userId, setUserId] = useState<string | null>(null);
-  const [needTopic, setNeedTopic] = useState(false);
-  const [haveProject, setHaveProject] = useState(false);
-  const [contactMethod, setContactMethod] = useState<"email" | "whatsapp">(
-    "email"
-  );
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
 
   const { allowed, retryAfterSec, attemptAction, resetLimit } = useRateLimit({
     actionKey: "project_request_submission",
