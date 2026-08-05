@@ -3,8 +3,6 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
   signOut as firebaseSignOut,
   User as FirebaseUser,
 } from "firebase/auth";
@@ -30,7 +28,6 @@ interface AuthContextType {
   isAdmin: boolean;
   signUp: (name: string, email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -104,8 +101,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await createUserRole(res.user.uid, "student");
       toast.success("Account created successfully!");
     } catch (err: any) {
-      toast.error(err.message || "Registration failed");
-      throw err;
+      // Generic error to prevent user enumeration
+      const safeMessage = getSafeAuthError(err.code);
+      toast.error(safeMessage);
+      throw new Error(safeMessage);
     }
   };
 
@@ -114,31 +113,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await signInWithEmailAndPassword(auth, email, password);
       toast.success("Logged in successfully!");
     } catch (err: any) {
-      toast.error(err.message || "Login failed");
-      throw err;
-    }
-  };
-
-  const signInWithGoogle = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      const res = await signInWithPopup(auth, provider);
-      
-      // Ensure user record & role exist in Firestore
-      const dbUser = await getUser(res.user.uid);
-      if (!dbUser) {
-        await createUser(res.user.uid, {
-          full_name: res.user.displayName || "Google User",
-          email: res.user.email || "",
-          photoUrl: res.user.photoURL || "",
-        });
-        await createUserRole(res.user.uid, "student");
-      }
-      toast.success("Signed in with Google successfully!");
-    } catch (err: any) {
-      console.error("Google auth error:", err);
-      toast.error(err.message || "Google Sign-In failed");
-      throw err;
+      // Generic error to prevent user enumeration
+      const safeMessage = getSafeAuthError(err.code);
+      toast.error(safeMessage);
+      throw new Error(safeMessage);
     }
   };
 
@@ -164,7 +142,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAdmin,
         signUp,
         signIn,
-        signInWithGoogle,
         signOut,
       }}
     >
@@ -179,3 +156,28 @@ export const useAuth = () => {
   return context;
 };
 
+/**
+ * Maps Firebase auth error codes to safe, non-enumerable messages.
+ * Never reveals whether an email exists in the system.
+ */
+function getSafeAuthError(code: string): string {
+  switch (code) {
+    case "auth/user-not-found":
+    case "auth/wrong-password":
+    case "auth/invalid-credential":
+    case "auth/invalid-email":
+      return "Invalid email or password. Please check your credentials.";
+    case "auth/user-disabled":
+      return "This account has been disabled. Contact support.";
+    case "auth/too-many-requests":
+      return "Too many attempts. Please try again later.";
+    case "auth/email-already-in-use":
+      return "An account with this email already exists. Try signing in.";
+    case "auth/weak-password":
+      return "Password is too weak. Use at least 8 characters with mixed case, numbers, and symbols.";
+    case "auth/network-request-failed":
+      return "Network error. Check your internet connection.";
+    default:
+      return "Authentication failed. Please try again.";
+  }
+}
