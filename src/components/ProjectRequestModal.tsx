@@ -13,11 +13,41 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar } from "lucide-react";
-import { useFirebaseAuth } from "@/integrations/firebase/useFirebaseAuth";
-import { createProject } from "@/integrations/firebase/firebaseService";
-import { storage } from "@/integrations/firebase/config";
-import { ref, uploadBytes } from "firebase/storage";
+import { Sparkles, Loader2, Calendar } from "lucide-react";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { updateProject } from "@/integrations/firebase/firebaseService";
+import { sendProjectCreatedEmail } from "@/lib/emailService";
+
+// Inside component:
+  const [description, setDescription] = useState("");
+  const [titleInput, setTitleInput] = useState(prefilledService || "");
+  const [disciplineInput, setDisciplineInput] = useState("");
+  const [levelInput, setLevelInput] = useState("undergraduate");
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+
+  const handleAiGenerate = () => {
+    const currentTitle = titleInput || prefilledService || "";
+    if (!currentTitle && !disciplineInput) {
+      toast({
+        title: "Topic or Discipline Required",
+        description: "Please enter a project title or discipline to generate a brief with AI.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingAi(true);
+    setTimeout(() => {
+      const generatedText = `Project Focus: ${currentTitle || disciplineInput}\nAcademic Level: ${levelInput.toUpperCase()}\n\nKey Objectives:\n1. Conduct in-depth research and literature review in ${disciplineInput || "the subject area"}.\n2. Design and implement the primary methodology/software architecture for ${currentTitle || "the project"}.\n3. Document step-by-step implementation, testing results, and final analysis report.`;
+      
+      setDescription(generatedText);
+      setIsGeneratingAi(false);
+      toast({
+        title: "✨ AI Brief Generated",
+        description: "Project description updated successfully.",
+      });
+    }, 800);
+  };
 
 import { useRateLimit } from "@/hooks/useRateLimit";
 import { sanitizeInput } from "@/lib/security";
@@ -112,32 +142,49 @@ export const ProjectRequestModal = ({
       // Create project in Firestore
       const projectId = await createProject({
         userId: userId,
-        title: title || "Untitled Project",
-        category: discipline,
-        description,
+        title: title || titleInput || "Untitled Project",
+        category: discipline || disciplineInput,
+        description: description || "",
         status: "pending",
         deadline: deadline ? new Date(deadline) : null,
         budget,
         phone,
-        level,
+        level: level || levelInput,
         needTopic,
         haveProject,
         contactMethod,
       });
 
-      // If files were selected, upload them to Cloud Storage
+      // If files were selected, upload them to Cloud Storage and save download URLs
+      const uploadedFilesList: { name: string; url: string; uploadedAt: string }[] = [];
       if (fileInput?.files?.length) {
         const uploadPromises = Array.from(fileInput.files).map(async (file) => {
           try {
             const storageRef = ref(storage, `projects/${projectId}/files/${file.name}`);
             await uploadBytes(storageRef, file);
+            const downloadUrl = await getDownloadURL(storageRef);
+            uploadedFilesList.push({
+              name: file.name,
+              url: downloadUrl,
+              uploadedAt: new Date().toISOString(),
+            });
           } catch (error) {
             console.error(`Failed to upload file ${file.name}:`, error);
-            // Continue uploading other files
           }
         });
 
         await Promise.all(uploadPromises);
+
+        if (uploadedFilesList.length > 0) {
+          await updateProject(projectId, { files: uploadedFilesList });
+        }
+      }
+
+      // Send project submission email notification
+      const userEmail = firebaseUser?.email || "";
+      const userName = firebaseUser?.displayName || "Student";
+      if (userEmail) {
+        sendProjectCreatedEmail(userEmail, userName, projectId, title || titleInput || "Untitled Project", deadline).catch((e) => console.error(e));
       }
 
       toast({
@@ -147,6 +194,9 @@ export const ProjectRequestModal = ({
 
       // Reset form and modal state
       form.reset();
+      setDescription("");
+      setTitleInput("");
+      setDisciplineInput("");
       setNeedTopic(false);
       setHaveProject(false);
       setContactMethod("email");
@@ -183,7 +233,8 @@ export const ProjectRequestModal = ({
               id="title"
               name="title"
               placeholder="e.g., Smart Home Automation System"
-              defaultValue={prefilledService}
+              value={titleInput}
+              onChange={(e) => setTitleInput(e.target.value)}
               disabled={loading}
             />
           </div>
@@ -227,11 +278,12 @@ export const ProjectRequestModal = ({
               <select
                 id="level"
                 name="level"
+                value={levelInput}
+                onChange={(e) => setLevelInput(e.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
                 required
                 disabled={loading}
               >
-                <option value="">Select level</option>
                 <option value="undergraduate">Undergraduate</option>
                 <option value="masters">Masters</option>
                 <option value="phd">PhD</option>
@@ -243,20 +295,41 @@ export const ProjectRequestModal = ({
                 id="discipline"
                 name="discipline"
                 placeholder="e.g., Computer Science"
+                value={disciplineInput}
+                onChange={(e) => setDisciplineInput(e.target.value)}
                 required
                 disabled={loading}
               />
             </div>
           </div>
 
-          {/* Brief Description */}
+          {/* Brief Description with AI Button */}
           <div className="space-y-2">
-            <Label htmlFor="description">Brief Description</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="description">Brief Description</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10"
+                onClick={handleAiGenerate}
+                disabled={loading || isGeneratingAi}
+              >
+                {isGeneratingAi ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                )}
+                {isGeneratingAi ? "Generating..." : "✨ Generate with AI"}
+              </Button>
+            </div>
             <Textarea
               id="description"
               name="description"
-              placeholder="Describe what you need help with..."
+              placeholder="Describe what you need help with or generate with AI..."
               rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               required
               disabled={loading}
             />

@@ -17,6 +17,7 @@ import { createUser } from "@/integrations/firebase/firebaseService";
 import { useRateLimit } from "@/hooks/useRateLimit";
 import { sanitizeInput, validateEmail, validatePassword, getPasswordStrength } from "@/lib/security";
 import { Eye, EyeOff } from "lucide-react";
+import { sendWelcomeEmail } from "@/lib/emailService";
 
 export const AuthModal = ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) => {
   const navigate = useNavigate();
@@ -112,6 +113,8 @@ export const AuthModal = ({ open, onOpenChange }: { open: boolean; onOpenChange:
       const cleanName = sanitizeInput(fullName);
 
       await signUp(cleanName, cleanEmail, password);
+      // Dispatch welcome email asynchronously
+      sendWelcomeEmail(cleanEmail, cleanName).catch((e) => console.error(e));
 
       resetRegisterLimit();
 

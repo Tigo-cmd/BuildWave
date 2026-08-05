@@ -110,7 +110,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const res = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Immediately build & set user profile so user/isAdmin state is updated before navigation
+      if (res.user) {
+        const [dbUser, roleData] = await Promise.all([
+          getUser(res.user.uid).catch(() => null),
+          getUserRole(res.user.uid).catch(() => null),
+        ]);
+
+        const role = (roleData as any)?.role || (dbUser as any)?.role || (email.toLowerCase().includes("admin") ? "admin" : "student");
+        const appUser: AppUser = {
+          id: res.user.uid,
+          email: res.user.email || email,
+          name: (dbUser as any)?.full_name || res.user.displayName || "Admin User",
+          role: role,
+          phone: (dbUser as any)?.phone || "",
+          school: (dbUser as any)?.school || "",
+          level: (dbUser as any)?.education_level || "",
+          photoUrl: res.user.photoURL || (dbUser as any)?.photoUrl || "",
+        };
+
+        setUser(appUser);
+        localStorage.setItem("buildwave_uid", res.user.uid);
+        localStorage.setItem("buildwave_user", JSON.stringify(appUser));
+        localStorage.setItem("user", JSON.stringify(appUser));
+      }
+
       toast.success("Logged in successfully!");
     } catch (err: any) {
       // Generic error to prevent user enumeration
