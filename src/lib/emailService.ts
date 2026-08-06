@@ -10,16 +10,19 @@ interface SendEmailParams {
   to: string;
   subject: string;
   html: string;
+  from?: string;
 }
 
 const RESEND_API_KEY = import.meta.env.VITE_RESEND_API_KEY || "";
-const FROM_EMAIL = import.meta.env.VITE_RESEND_FROM_EMAIL || "BuildWave <notifications@buildwave.pro>";
+const DEFAULT_FROM_EMAIL = import.meta.env.VITE_RESEND_FROM_EMAIL || "BuildWave <notifications@buildwave.pro>";
 
-export const sendEmail = async ({ to, subject, html }: SendEmailParams): Promise<boolean> => {
+export const sendEmail = async ({ to, subject, html, from }: SendEmailParams): Promise<boolean> => {
   if (!to || !to.includes("@")) {
     console.warn("Invalid email address provided for notification:", to);
     return false;
   }
+
+  const senderEmail = from || DEFAULT_FROM_EMAIL;
 
   // If Resend API Key is available, dispatch via Resend REST API
   if (RESEND_API_KEY) {
@@ -31,7 +34,7 @@ export const sendEmail = async ({ to, subject, html }: SendEmailParams): Promise
           Authorization: `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: FROM_EMAIL,
+          from: senderEmail,
           to: [to],
           subject,
           html,
