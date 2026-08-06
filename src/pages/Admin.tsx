@@ -85,16 +85,16 @@ const Admin = () => {
 
       const projectsData: Project[] = allProjects.map((p: any) => {
         const u = usersMap.get(p.user_id);
-        const studentName = u?.full_name || p.student_name || p.student || "Unknown Student";
-        const studentEmail = u?.email || "";
+        const studentName = u?.full_name || u?.name || p.student_name || p.user_name || p.student || "BuildWave Student";
+        const studentEmail = u?.email || p.student_email || p.user_email || "Not Provided";
 
         return {
           id: p.id,
-          title: p.title || "Untitled",
+          title: p.title || "Untitled Project",
           student: studentName,
           studentEmail: studentEmail,
-          level: p.academic_level || p.level || "N/A",
-          discipline: p.discipline || p.category || "N/A",
+          level: u?.education_level || u?.academic_level || p.academic_level || p.level || "Undergraduate",
+          discipline: u?.course_of_study || u?.discipline || p.discipline || p.category || "Engineering & Science",
           status: p.status ? p.status.charAt(0).toUpperCase() + p.status.slice(1) : "Pending",
           progress: p.progress || 0,
           assignedTo: p.assigned_to || null,

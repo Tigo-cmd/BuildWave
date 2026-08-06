@@ -34,6 +34,8 @@ export interface CaseStudyItem {
   grade: string;
   quote: string;
   tags: string[];
+  projectUrl?: string;
+  image?: string;
 }
 
 export interface HowItWorksStep {

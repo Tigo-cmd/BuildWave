@@ -46,8 +46,24 @@ const TrackProject = () => {
       setLoading(true);
       if (!projectId) throw new Error("Project ID not found");
 
-      const projectData = await getProject(projectId);
+      if (!user) {
+        throw new Error("Authentication Required: Please log in to view project tracking details.");
+      }
+
+      const projectData: any = await getProject(projectId);
       if (!projectData) throw new Error("Project not found");
+
+      // Verify user authorization: must be admin or project owner
+      const isOwner =
+        user.isAdmin ||
+        user.role === "admin" ||
+        projectData.user_id === user.id ||
+        projectData.student_email?.toLowerCase() === user.email?.toLowerCase() ||
+        projectData.user_email?.toLowerCase() === user.email?.toLowerCase();
+
+      if (!isOwner) {
+        throw new Error("Unauthorized Access: You do not have permission to view this project.");
+      }
 
       const timelineData = await getProjectTimeline(projectId);
 
@@ -58,7 +74,7 @@ const TrackProject = () => {
       setError(err.message);
 
       toast({
-        title: "Error",
+        title: "Access Denied",
         description: err.message,
         variant: "destructive",
       });
@@ -69,7 +85,7 @@ const TrackProject = () => {
 
   useEffect(() => {
     if (projectId) fetchProjectData();
-  }, [projectId]);
+  }, [projectId, user]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();

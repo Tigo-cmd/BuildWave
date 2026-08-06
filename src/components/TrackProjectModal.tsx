@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { getProject, getUser } from "@/integrations/firebase/firebaseService";
 
 interface TrackProjectModalProps {
@@ -19,11 +20,34 @@ export const TrackProjectModal = ({ open, onOpenChange }: TrackProjectModalProps
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const { user, isAdmin } = useAuth();
+
   const handleTrack = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user) {
+      toast({
+        title: "🔒 Login Required",
+        description: "Please log in to your account to track your projects.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
+      // Verify logged-in user email matches the entered email (unless admin)
+      if (!isAdmin && user.email?.toLowerCase() !== email.toLowerCase()) {
+        toast({
+          title: "🔒 Unauthorized Email",
+          description: `You are logged in as ${user.email}. You can only track projects associated with your account.`,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       // Fetch project from Firestore
       const project = await getProject(projectId);
 
@@ -37,25 +61,17 @@ export const TrackProjectModal = ({ open, onOpenChange }: TrackProjectModalProps
         return;
       }
 
-      // Get project creator's user document to verify email
-      const projectCreator = await getUser((project as any).user_id);
+      // Verify project ownership (unless admin)
+      const projData = project as any;
+      const isOwner =
+        projData.user_id === user.id ||
+        projData.student_email?.toLowerCase() === user.email?.toLowerCase() ||
+        projData.user_email?.toLowerCase() === user.email?.toLowerCase();
 
-      if (!projectCreator) {
+      if (!isAdmin && !isOwner) {
         toast({
-          title: "❌ Project Creator Not Found",
-          description: "Unable to verify project ownership.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      // Verify email matches project creator's email
-      const creatorEmail = (projectCreator as any).email || "";
-      if (creatorEmail.toLowerCase() !== email.toLowerCase()) {
-        toast({
-          title: "❌ Email Mismatch",
-          description: "The email doesn't match the project creator's email.",
+          title: "🔒 Unauthorized Access",
+          description: "This project belongs to another user.",
           variant: "destructive",
         });
         setLoading(false);

@@ -525,6 +525,25 @@ const AdminContent = () => {
                         </div>
                       </div>
 
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label>Project / Demo Link (URL)</Label>
+                          <Input
+                            placeholder="https://example.com/project"
+                            value={item.projectUrl || ""}
+                            onChange={(e) => updateCaseStudyItem(index, "projectUrl", e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Project Image / Cover Picture (URL)</Label>
+                          <Input
+                            placeholder="https://images.unsplash.com/..."
+                            value={item.image || ""}
+                            onChange={(e) => updateCaseStudyItem(index, "image", e.target.value)}
+                          />
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
                         <Label>Quote / Review</Label>
                         <Textarea

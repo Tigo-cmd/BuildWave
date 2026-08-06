@@ -27,24 +27,26 @@ import { db } from "./config";
 export const generateProjectId = async (): Promise<string> => {
   try {
     const year = new Date().getFullYear();
-    const projectsRef = collection(db, "projects");
+    const snapshot = await getDocs(collection(db, "projects"));
     
-    // Get all projects from current year to count them
-    const q = query(
-      projectsRef,
-      where("createdAt", ">=", new Date(year, 0, 1)),
-      where("createdAt", "<", new Date(year + 1, 0, 1))
-    );
+    // Extract max numeric suffix among existing project IDs for current year
+    const existingNumbers: number[] = [];
+    snapshot.docs.forEach((doc) => {
+      const id = doc.id;
+      if (id.startsWith(`BW-${year}-`)) {
+        const parts = id.split("-");
+        const num = parseInt(parts[2], 10);
+        if (!isNaN(num)) existingNumbers.push(num);
+      }
+    });
+
+    const maxNum = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
+    const nextNum = maxNum + 1;
     
-    const snapshot = await getDocs(q);
-    const count = snapshot.size + 1; // Next project number
-    
-    // Format as BW-YYYY-NNNN
-    const projectId = `BW-${year}-${String(count).padStart(4, "0")}`;
-    return projectId;
+    return `BW-${year}-${String(nextNum).padStart(4, "0")}`;
   } catch (error) {
     console.error("Error generating project ID:", error);
-    throw error;
+    return `BW-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
   }
 };
 
@@ -676,17 +678,25 @@ export const createTimeline = async (
  */
 export const getProjectTimeline = async (projectId: string) => {
   try {
+    if (!projectId || typeof projectId !== "string" || !projectId.trim()) {
+      return [];
+    }
+
     const q = query(
       collection(db, "timeline"),
-      where("project_id", "==", projectId),
-      orderBy("createdAt", "desc")
+      where("project_id", "==", projectId.trim())
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const events = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    return events.sort((a: any, b: any) => {
+      const timeA = a.createdAt?.seconds ? a.createdAt.seconds : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const timeB = b.createdAt?.seconds ? b.createdAt.seconds : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      return timeB - timeA;
+    });
   } catch (error) {
     console.error("Error getting project timeline:", error);
-    throw error;
+    return [];
   }
 };
 

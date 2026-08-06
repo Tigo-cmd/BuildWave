@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { generateProjectBriefWithGroq } from "@/lib/groqService";
 import { Sparkles, Loader2, Calendar } from "lucide-react";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { storage } from "@/integrations/firebase/config";
@@ -50,7 +51,7 @@ export const ProjectRequestModal = ({
   const [levelInput, setLevelInput] = useState("undergraduate");
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
-  const handleAiGenerate = () => {
+  const handleAiGenerate = async () => {
     const currentTitle = titleInput || prefilledService || "";
     if (!currentTitle && !disciplineInput) {
       toast({
@@ -62,16 +63,29 @@ export const ProjectRequestModal = ({
     }
 
     setIsGeneratingAi(true);
-    setTimeout(() => {
-      const generatedText = `Project Focus: ${currentTitle || disciplineInput}\nAcademic Level: ${levelInput.toUpperCase()}\n\nKey Objectives:\n1. Conduct in-depth research and literature review in ${disciplineInput || "the subject area"}.\n2. Design and implement the primary methodology/software architecture for ${currentTitle || "the project"}.\n3. Document step-by-step implementation, testing results, and final analysis report.`;
-      
-      setDescription(generatedText);
-      setIsGeneratingAi(false);
-      toast({
-        title: "✨ AI Brief Generated",
-        description: "Project description updated successfully.",
+    try {
+      const generatedText = await generateProjectBriefWithGroq({
+        title: currentTitle,
+        discipline: disciplineInput,
+        level: levelInput,
+        requirements: description,
       });
-    }, 800);
+
+      setDescription(generatedText);
+      toast({
+        title: "✨ Groq AI Brief Generated",
+        description: "Project description updated with Groq AI.",
+      });
+    } catch (err) {
+      console.error("AI Generation error:", err);
+      toast({
+        title: "Generation Error",
+        description: "Could not generate brief. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingAi(false);
+    }
   };
 
   const { allowed, retryAfterSec, attemptAction, resetLimit } = useRateLimit({

@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 
 import { TrackProjectModal } from "@/components/TrackProjectModal";
 import { ProjectRequestModal } from "@/components/ProjectRequestModal";
+import { TestimonialModal } from "@/components/TestimonialModal";
+import { AccountSettingsModal } from "@/components/AccountSettingsModal";
 
 import {
   Card,
@@ -17,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
-import { Plus, FileText, Clock, LogOut, Home, Bell } from "lucide-react";
+import { Plus, FileText, Clock, LogOut, Home, Bell, MessageSquareQuote, Settings } from "lucide-react";
 import { useFirebaseAuth } from "@/integrations/firebase/useFirebaseAuth";
 import { getUserProjects, getUser } from "@/integrations/firebase/firebaseService";
 import { getUserNotifications, markNotificationAsRead } from "@/integrations/firebase/notificationsService";
@@ -57,6 +59,8 @@ const Dashboard = () => {
 
   const [trackModalOpen, setTrackModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
+  const [testimonialModalOpen, setTestimonialModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   // Automatic session timeout after 30 minutes of inactivity
   useInactivityTimer({
@@ -328,6 +332,11 @@ const Dashboard = () => {
                 </PopoverContent>
               </Popover>
 
+              <Button variant="ghost" size="sm" onClick={() => setSettingsModalOpen(true)} className="gap-1.5 hidden sm:flex">
+                <Settings className="h-4 w-4 text-muted-foreground" />
+                Settings
+              </Button>
+
               <Button className="btn-hero" onClick={() => setProjectModalOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 New Project
@@ -343,7 +352,7 @@ const Dashboard = () => {
 
         <main className="flex-1 container px-4 py-8 max-w-5xl mx-auto">
           {/* Welcome Banner */}
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 p-6 rounded-2xl border">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 p-6 rounded-2xl border shadow-sm">
             <div>
               <h1 className="text-3xl font-bold gradient-text">
                 Welcome back, {user?.name || "Student"}!
@@ -351,6 +360,27 @@ const Dashboard = () => {
               {user?.school && (
                 <p className="text-muted-foreground mt-1 text-sm">{user.school}</p>
               )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTestimonialModalOpen(true)}
+                className="bg-white dark:bg-gray-800 shadow-sm border-purple-200 hover:border-purple-400"
+              >
+                <MessageSquareQuote className="mr-2 h-4 w-4 text-purple-600" />
+                Share Testimonial
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSettingsModalOpen(true)}
+                className="sm:hidden gap-1.5"
+              >
+                <Settings className="h-4 w-4 text-muted-foreground" />
+                Settings
+              </Button>
             </div>
           </div>
 
@@ -367,6 +397,12 @@ const Dashboard = () => {
         {/* Modals */}
         <TrackProjectModal open={trackModalOpen} onOpenChange={setTrackModalOpen} />
         <ProjectRequestModal open={projectModalOpen} onOpenChange={setProjectModalOpen} />
+        <TestimonialModal open={testimonialModalOpen} onOpenChange={setTestimonialModalOpen} />
+        <AccountSettingsModal
+          open={settingsModalOpen}
+          onOpenChange={setSettingsModalOpen}
+          onProfileUpdated={fetchDashboard}
+        />
       </div>
     </>
   );

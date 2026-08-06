@@ -13,7 +13,7 @@ interface SendEmailParams {
 }
 
 const RESEND_API_KEY = import.meta.env.VITE_RESEND_API_KEY || "";
-const FROM_EMAIL = "BuildWave <notifications@buildwave.com>";
+const FROM_EMAIL = import.meta.env.VITE_RESEND_FROM_EMAIL || "BuildWave <notifications@buildwave.pro>";
 
 export const sendEmail = async ({ to, subject, html }: SendEmailParams): Promise<boolean> => {
   if (!to || !to.includes("@")) {

@@ -101,20 +101,20 @@ const AdminProjectDetail = () => {
       const projectData = await getProject(projectId);
       if (!projectData) throw new Error("Project not found");
 
-      let studentInfo: Student | null = null;
-      if ((projectData as any).user_id) {
-        const studentData = await getUser((projectData as any).user_id);
-        if (studentData) {
-          studentInfo = {
-            name: (studentData as any).full_name || "Unknown",
-            email: (studentData as any).email || "N/A",
-            phone: (studentData as any).phone || "N/A",
-            school: (studentData as any).school || "N/A",
-            education_level: (studentData as any).education_level || "N/A",
-            course_of_study: (studentData as any).course_of_study || "N/A",
-          };
-        }
+      const proj = projectData as any;
+      let studentData: any = null;
+      if (proj.user_id) {
+        studentData = await getUser(proj.user_id).catch(() => null);
       }
+
+      const studentInfo: Student = {
+        name: studentData?.full_name || studentData?.name || proj.student_name || proj.user_name || "Student User",
+        email: studentData?.email || proj.student_email || proj.user_email || "Not Provided",
+        phone: studentData?.phone || proj.phone || "Not Provided",
+        school: studentData?.school || proj.school || proj.institution || "Academic Institution",
+        education_level: studentData?.education_level || studentData?.academic_level || proj.academic_level || proj.level || "Undergraduate",
+        course_of_study: studentData?.course_of_study || studentData?.discipline || proj.discipline || proj.category || "Engineering & Science",
+      };
 
       const timelineData = await getProjectTimeline(projectId);
 
