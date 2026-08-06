@@ -24,8 +24,7 @@ service cloud.firestore {
     
     // Users collection (profiles)
     match /users/{userId} {
-      allow read: if isAuth();
-      allow write: if isOwner(userId);
+      allow read, write: if isAuth();
     }
     
     // User roles collection
