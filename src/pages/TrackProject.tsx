@@ -88,10 +88,21 @@ const TrackProject = () => {
       let fileAttachment: { name: string; url: string } | null = null;
 
       if (selectedFile && projectId) {
-        const storageRef = ref(storage, `projects/${projectId}/student_files/${Date.now()}_${selectedFile.name}`);
-        await uploadBytes(storageRef, selectedFile);
-        const downloadUrl = await getDownloadURL(storageRef);
-        fileAttachment = { name: selectedFile.name, url: downloadUrl };
+        try {
+          const storageRef = ref(storage, `projects/${projectId}/student_files/${Date.now()}_${selectedFile.name}`);
+          await uploadBytes(storageRef, selectedFile);
+          const downloadUrl = await getDownloadURL(storageRef);
+          fileAttachment = { name: selectedFile.name, url: downloadUrl };
+        } catch (storageErr) {
+          console.warn("Storage upload failed, falling back to Data URL:", storageErr);
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(selectedFile);
+          });
+          fileAttachment = { name: selectedFile.name, url: dataUrl };
+        }
 
         // Save to project studentFiles list
         const existingStudentFiles = project.studentFiles || [];
@@ -349,10 +360,12 @@ const TrackProject = () => {
                         variant="outline"
                         size="sm"
                         className="gap-2"
-                        onClick={() => window.open(file.url || file.file_url, "_blank")}
+                        asChild
                       >
-                        <Download className="h-4 w-4" />
-                        Download
+                        <a href={file.url || file.file_url} target="_blank" rel="noopener noreferrer">
+                          <Download className="h-4 w-4" />
+                          Download
+                        </a>
                       </Button>
                     </div>
                   ))

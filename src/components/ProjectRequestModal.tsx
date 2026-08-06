@@ -156,7 +156,7 @@ export const ProjectRequestModal = ({
         contactMethod,
       });
 
-      // If files were selected, upload them to Cloud Storage and save download URLs
+      // If files were selected, upload them to Cloud Storage or fallback to Data URL for Vercel
       const uploadedFilesList: { name: string; url: string; uploadedAt: string }[] = [];
       if (fileInput?.files?.length) {
         const uploadPromises = Array.from(fileInput.files).map(async (file) => {
@@ -170,7 +170,18 @@ export const ProjectRequestModal = ({
               uploadedAt: new Date().toISOString(),
             });
           } catch (error) {
-            console.error(`Failed to upload file ${file.name}:`, error);
+            console.warn(`Storage upload failed for ${file.name}, using Data URL fallback:`, error);
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+            uploadedFilesList.push({
+              name: file.name,
+              url: dataUrl,
+              uploadedAt: new Date().toISOString(),
+            });
           }
         });
 

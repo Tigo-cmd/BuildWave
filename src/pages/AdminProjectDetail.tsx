@@ -231,9 +231,20 @@ const AdminProjectDetail = () => {
 
     try {
       const fileName = deliverableName.trim() || deliverableFile.name;
-      const storageRef = ref(storage, `projects/${project.id}/deliverables/${Date.now()}_${deliverableFile.name}`);
-      await uploadBytes(storageRef, deliverableFile);
-      const downloadUrl = await getDownloadURL(storageRef);
+      let downloadUrl = "";
+      try {
+        const storageRef = ref(storage, `projects/${project.id}/deliverables/${Date.now()}_${deliverableFile.name}`);
+        await uploadBytes(storageRef, deliverableFile);
+        downloadUrl = await getDownloadURL(storageRef);
+      } catch (storageErr) {
+        console.warn("Storage upload failed, falling back to Data URL:", storageErr);
+        downloadUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(deliverableFile);
+        });
+      }
 
       const newDeliverable = {
         id: `del_${Date.now()}`,
