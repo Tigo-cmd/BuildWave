@@ -50,6 +50,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             getUserRole(currentUser.uid),
           ]);
 
+          if (!dbUser) {
+            console.warn("User account profile does not exist in Firestore. Signing out.");
+            await auth.signOut();
+            setUser(null);
+            setFirebaseUser(null);
+            setLoading(false);
+            return;
+          }
+
           const role = (roleData as any)?.role || (dbUser as any)?.role || "student";
           const appUser: AppUser = {
             id: currentUser.uid,
@@ -68,14 +77,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           localStorage.setItem("user", JSON.stringify(appUser));
         } catch (err) {
           console.error("Error building auth profile:", err);
-          // Fallback minimal profile
-          const appUser: AppUser = {
-            id: currentUser.uid,
-            email: currentUser.email || "",
-            name: currentUser.displayName || "User",
-            role: "student",
-          };
-          setUser(appUser);
+          setUser(null);
         }
       } else {
         setUser(null);
@@ -119,6 +121,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           getUserRole(res.user.uid).catch(() => null),
         ]);
 
+        if (!dbUser) {
+          await auth.signOut();
+          toast.error("This account has been deleted or disabled.");
+          throw new Error("This account has been deleted or disabled.");
+        }
+
         const role = (roleData as any)?.role || (dbUser as any)?.role || (email.toLowerCase().includes("admin") ? "admin" : "student");
         const appUser: AppUser = {
           id: res.user.uid,
@@ -139,6 +147,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       toast.success("Logged in successfully!");
     } catch (err: any) {
+      if (err.message === "This account has been deleted or disabled.") {
+        throw err;
+      }
       // Generic error to prevent user enumeration
       const safeMessage = getSafeAuthError(err.code);
       toast.error(safeMessage);
